@@ -1,0 +1,39 @@
+---
+title: "Pou2f3 DEG MYC Targets"
+output: 
+  html_document: 
+    toc: yes
+---
+
+## Genes of Interest MYC Targets Pathway
+
+Unregulated in Pou2f3+ Neuroendocrine Cells (MYC Targets V1 and V2):
+  Nolc1 - Neuro crest development 
+  Usf1 - Transcription Factor
+  Mybpp1a - Nucleolar transcriptional regulator that was first identified by its ability to bind specifically to the Myb proto-oncogene protein
+ 
+Unregulated in Pou2f3+ Neuroendocrine Cells (Neurvous System Development - Reactome 2022):
+
+  Nrcam - neuronal cell adhesion molecule, also expressed in non-neural tissues and may play a general role in cell-cell communication
+  Lyn - maybe involved in the regulation of mast cell degranulation, and erythroid differentiation
+  Epha7 - EPH and EPH-related receptors have been implicated in mediating developmental events, particularly in the nervous system
+  Sos1 - protein that is involved in controlling (regulating) the activation of the RAS/MAPK signaling pathway
+  
+```{r MYC Target Pathway Upregulated Genes}
+
+library(Seurat)
+#read in seurat object
+PRN_6wk_8wk = readRDS("./Seurat_Objects/Annotated_PRN_6wk_8wk.rds")
+
+#plot expression of genes of interest 
+FeaturePlot(object = PRN_6wk_8wk, features = 'Nolc1', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Usf1', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Mybbp1a', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Nrcam', reduction = "tsne") #Neuroendocrine specfic
+FeaturePlot(object = PRN_6wk_8wk, features = 'Lyn', reduction = "tsne") #Pou2ff3 Specfic within neuroendocrine
+FeaturePlot(object = PRN_6wk_8wk, features = 'Epha7', reduction = "tsne") #Neuroendocrine specfic
+FeaturePlot(object = PRN_6wk_8wk, features = 'Sos1', reduction = "tsne") #Neuroendocrine specfic
+
+
+```
+

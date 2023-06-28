@@ -1,0 +1,120 @@
+---
+title: "SCENIC"
+author: "Caden McQuillen"
+date: '2023-01-13'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Get Expression Matrix}
+library(Seurat)
+
+PRN_6wk_8wk = readRDS("PRN_6wk_8wk_Annotated.rds")
+## Get data from sce object:
+exprMat <- PRN_6wk_8wk@assays$RNA@data
+cellInfo <- data.frame(seuratCluster=Idents(PRN_6wk_8wk))
+```
+
+```{r SCENIC Setup}
+setwd("./SCENIC") 
+library(SCENIC)
+library(arrow)   #
+
+org <- "mgi" # or hgnc, or dmel
+dbDir <- "cisTarget_databases" # RcisTarget databases location
+myDatasetTitle <- "SCENIC Pou2f3" # choose a name for your analysis
+data(defaultDbNames)
+defaultDbNames$mgi[1]<-"mm9-500bp-upstream-7species.mc9nr.genes_vs_motifs.rankings.feather"
+defaultDbNames$mgi[2]<-"mm9-tss-centered-5kb-7species.mc9nr.genes_vs_motifs.rankings.feather"
+
+
+dbDir <- path.expand(dbDir)
+
+
+dbs <- defaultDbNames[[org]]
+dbs
+
+test = lapply(dbs,function(x) file.exists(file.path(dbDir, x)))
+dbLoadingAttempt <- function(dbFilePath){
+  ret <- FALSE
+  ret <- tryCatch({
+    md <- feather::feather_metadata(dbFilePath)
+    md$path
+    md$dim[2] == length(md$types)
+    randomCol <- sample(names(md$types),1)
+    rnk <- importRankings(dbFilePath, randomCol)
+    TRUE
+  }
+  , error=function(e){
+    print(e$message)
+    return(FALSE)
+  }
+  )
+
+  return(ret)
+}
+
+#test2 = dbLoadingAttempt("cisTarget_databases/mm9-500bp-upstream-7species.mc9nr.genes_vs_motifs.rankings.feather")
+
+scenicOptions <- initializeScenic(org=org, dbDir=dbDir, dbs= dbs, datasetTitle=myDatasetTitle, nCores=2) 
+saveRDS(scenicOptions, file="scenicOptions.Rds") 
+
+
+
+
+
+
+```
+
+```{r Gene Filter}
+genesKept <- geneFiltering(exprMat, scenicOptions=scenicOptions,
+                           minCountsPerGene=3*.01*ncol(exprMat),
+                           minSamples=ncol(exprMat)*.01)
+
+interestingGenes <- c("Pou2f3", "Avil", "Trmp5", "Ascl2", "Il17rb", "Colca2")
+# any missing?
+interestingGenes[which(!interestingGenes %in% genesKept)]
+
+exprMat_filtered <- exprMat[genesKept, ]
+dim(exprMat_filtered)
+rm(exprMat)
+```
+
+```{r Correlation}
+runCorrelation(exprMat_filtered, scenicOptions)
+```
+
+```{r GENIE3}
+# Run GENIE3
+runGenie3(exprMat_filtered, scenicOptions)
+```
+
+
+```{r Build and Score GRN}
+library(SCENIC)
+scenicOptions <- readRDS("scenicOptions.Rds")
+scenicOptions@settings$verbose <- TRUE
+scenicOptions@settings$nCores <- 10
+scenicOptions@settings$seed <- 123
+
+scenicOptions <- runSCENIC_1_coexNetwork2modules(scenicOptions)
+#scenicOptions <- runSCENIC_2_createRegulons(scenicOptions, coexMethod=c("top5perTarget")) #** Only for toy run!!
+scenicOptions <- runSCENIC_3_scoreCells(scenicOptions, exprMat_log)
+
+saveRDS(scenicOptions, file="scenicOptions.Rds") # To save status
+```
+
+```{r Export}
+
+exprMat <- get_dgem(open_loom(loomPath))
+dgem <- exprMat
+head(colnames(dgem))  #should contain the Cell ID/name
+
+# Export:
+scenicOptions@fileNames$output["loomFile",] <- "output/Pou2f3_SCENIC.loom"
+export2loom(scenicOptions, exprMat)
+```
+

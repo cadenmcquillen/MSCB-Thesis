@@ -1,0 +1,256 @@
+---
+title: "CellChat"
+author: "Caden McQuillen"
+date: '2023-01-30'
+output: 
+  html_document: 
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Extract data from Seurat object and add new cell type vector
+```{r Seurat Extraction, eval=FALSE}
+library(Seurat)
+PRN_6wk_8wk = readRDS("./Seurat_Objects/Annotated_PRN_6wk_8wk.rds")
+
+#add 2nd cell type vector with separate Pou2f3 Neuroendocrine cluster
+PRN_6wk_8wk$cell.type2 <- PRN_6wk_8wk$seurat_clusters
+PRN_6wk_8wk$cell.type2 <- plyr::mapvalues(
+    x = PRN_6wk_8wk$seurat_clusters,
+    from = c("0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"),
+    to = c("Granulocytes","Macrophages","Luminal Epithelium","Fibroblasts","Basal Epithelium","Fibroblasts","Basal Epithelium","Neuroendocrine","Fibroblasts","Macrophages","Seminal Vesicle","Macrophages",    "Macrophages","Endothelium","Pou2f3_Neuroendocrine","Luminal Epithelium",   "Fibroblasts"))
+```
+
+## Extract data from Seurat object
+```{r Suerat Extraction, eval=FALSE}
+library(Seurat)
+PRN_6wk_8wk = readRDS("./Seurat_Objects/Annotated_PRN_6wk_8wk.rds")
+data.input <- GetAssayData(PRN_6wk_8wk, assay = "RNA", slot = "data") # normalized data matrix
+labels <- PRN_6wk_8wk$cell.type3
+meta <- data.frame(group = labels, row.names = names(labels)) # create a dataframe of the cell labels
+```
+
+## Running CellChat Part 1
+```{r CellChat P1, eval=TRUE}
+library(CellChat)
+library(patchwork)
+options(stringsAsFactors = FALSE)
+
+#create cellchat object
+cellchat <- createCellChat(object = data.input, meta = meta, group.by = "group")
+
+#select DB (we are using mouse)
+CellChatDB <- CellChatDB.mouse
+
+#Use entire DB
+CellChatDB.use <- CellChatDB # simply use the default CellChatDB
+
+# set the used database in the object
+cellchat@DB <- CellChatDB.use
+
+# subset the expression data of signaling genes for saving computation cost
+cellchat <- subsetData(cellchat) # This step is necessary even if using the whole database
+future::plan("multiprocess", workers = 4) # do parallel
+cellchat <- identifyOverExpressedGenes(cellchat)
+cellchat <- identifyOverExpressedInteractions(cellchat)
+
+# project gene expression data onto PPI (Optional)
+cellchat <- projectData(cellchat, PPI.mouse)
+
+saveRDS(cellchat, "PRN_6wk_8wk_cellchat_part1.rds")
+```
+
+## Running CellChat Part 2
+```{r CellChat Part 2, eval=TRUE}
+
+#triMean is used for calculating the average gene expression per cell group. 
+cellchat <- computeCommunProb(cellchat)
+
+# Filter out the cell-cell communication if there are only few number of cells in certain cell groups
+cellchat <- filterCommunication(cellchat, min.cells = 10)
+
+
+# data frame consisting of all the inferred cell-cell communications at the level of ligands/receptors
+df.net_ligand_receptor <- subsetCommunication(cellchat)
+write.csv(df.net_ligand_receptor, "Ligand_Receptor_CellChat_df.csv")
+
+#compute the communication probability on signaling pathway level by summarizing the communication probabilities of all ligands-receptors interactions associated with each signaling pathway
+cellchat <- computeCommunProbPathway(cellchat)
+df.net_pathway <- subsetCommunication(cellchat, slot.name = "netP")
+write.csv(df.net_pathway, "Pathway_CellChat_df.csv")
+
+#calculate the aggregated cell-cell communication network by counting the number of links or summarizing the communication probability.
+cellchat <- aggregateNet(cellchat)
+
+#visualize the aggregated cell-cell communication network
+groupSize <- as.numeric(table(cellchat@idents))
+par(mfrow = c(1,2), xpd=TRUE)
+netVisual_circle(cellchat@net$count, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Number of interactions")
+netVisual_circle(cellchat@net$weight, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Interaction weights/strength")
+
+saveRDS(cellchat, "PRN_6wk_8wk_CellChat_Inferred_network.rds")
+```
+```{r Cell by Cell visualization, eval=FALSE}
+#visualize the aggregated cell-cell communication network cell by cell
+mat <- cellchat@net$weight
+par(mfrow = c(3,4), xpd=TRUE)
+for (i in 1:nrow(mat)) {
+  mat2 <- matrix(0, nrow = nrow(mat), ncol = ncol(mat), dimnames = dimnames(mat))
+  mat2[i, ] <- mat[i, ]
+  plot = netVisual_circle(mat2, vertex.weight = groupSize, weight.scale = T, edge.weight.max = max(mat), title.name = rownames(mat)[i])
+}
+ print(plot)
+ 
+ 
+```
+
+## Network Interaction Comparisons Pou2f3+ vs Pou2f3-
+
+```{r, eval=TRUE}
+#Extract Signaling pathways where Pou2f3+ and Pou2f3- are targets
+Pou2f3_Pos_Target = subset(df.net_pathway, df.net_pathway$target == "Pou2f3_Neuroendocrine")
+Pou2f3_Neg_Target = subset(df.net_pathway, df.net_pathway$target == "Neuroendocrine")
+
+#Extract Signaling pathways where Pou2f3+ and Pou2f3- are sources
+Pou2f3_Pos_Source = subset(df.net_pathway, df.net_pathway$source == "Pou2f3_Neuroendocrine")
+Pou2f3_Neg_Source = subset(df.net_pathway, df.net_pathway$source == "Neuroendocrine")
+
+#Pou2f3- Target: Unique Signaling Pathways
+#Source: Basal Epithelial: SEMA3, WNT
+#        Endothelium: SEMA6        
+#        Fibroblasts: EPHB, IGF, NCAM, WNT, ncWNT
+#        Luminal Epithelium: EPHB, SEMA3, WNT
+
+
+
+
+#Pou2f3- to Pou2f3- : CADM, CDH, EPHA, GRN, JAM, KIT, L1CAM, MPZ, NCAM, OCLN, PTN, THBS
+#Pou2f3+ to Pou2f3- : BMP, CADM, CDH, EPHB, GRN, JAM, MPZ, OCLN
+
+
+
+
+#Pou2f3+ Target: Unique Signaling Pathways
+#Source: Luminal Epithelium: EPHA
+
+#Pou2f3- Source: Unique Signaling Pathways
+#Target: Basal Epithelium: EPHA, PTN
+#        Endothelium: CALCR, EPHA, NCAM, PTN, THBS
+#        Fibroblasts: EPHA, NCAM, NRXN, NT, PDGF, PTN,THBS
+#        Grunolcytes: PTN, THBS
+#        Luminal Epithelium: EPHA
+#        Macrophages:	PTN, THBS
+#        Seminal Vesicle: PTN
+
+
+
+#Pou2f3+ Source: Unique Signaling Pathways
+#Target: Basal Epithelium: BMP, EPHB, MIF
+#        Endothelium: EPHB
+#        Fibroblasts: BMP, EPHB
+#        Luminal Epithelium: BMP
+#        Macrophages: IL10, MIF
+
+
+
+
+
+
+
+
+
+```
+## Pou2f3- Target: Unique Signaling Pathways
+Source:\
+Basal Epithelium: **SEMA3**, **WNT**\
+Endothelium: **SEMA6**\
+Fibroblasts: **EPHB**, **IGF**, **NCAM**, **WNT**, **ncWNT**\
+Luminal Epithelium: **EPHB**, **SEMA3**, **WNT**\
+
+## Pou2f3+ Target: Unique Signaling Pathways
+Source:\
+Luminal Epithelium: **EPHA**\
+        
+        
+## Pou2f3- Source: Unique Signaling Pathways
+Target:\
+Basal Epithelium: **EPHA**, **PTN**\
+Endothelium: **CALCR**, **EPHA**, **NCAM**, **PTN**, **THBS**\
+Fibroblasts: **EPHA**, **NCAM**, **NRXN**, **NT**, **PDGF**, **PTN**,**THBS**\
+Granulocytes: **PTN**, **THBS**\
+Luminal Epithelium: **EPHA**\
+Macrophages:	**PTN**, **THBS**\
+Seminal Vesicle: **PTN**\
+
+
+
+## Pou2f3+ Source: Unique Signaling Pathways
+Target:\
+Basal Epithelium: **BMP**, **EPHB**, **MIF**\
+Endothelium: **EPHB**\
+Fibroblasts: **BMP**, **EPHB**\
+Luminal Epithelium: **BMP**\
+Macrophages: **IL10**, **MIF**\
+
+## Pou2f3- to Pou2f3+  
+CADM, CDH, EPHA, GRN, JAM, KIT, L1CAM, MPZ, NCAM, OCLN, PTN, THBS
+
+## Pou2f3+ to Pou2f3-  
+BMP, CADM, CDH, EPHB, GRN, JAM, MPZ, OCLN
+
+## Heatmap of EPHB and EPHA
+```{r, eval = FALSE}
+# Heatmap 
+par(mfrow=c(1,1))
+netVisual_heatmap(cellchat, signaling = "EPHA", color.heatmap = "Reds")
+netVisual_heatmap(cellchat, signaling = "EPHB", color.heatmap = "Reds")
+netVisual_heatmap(cellchat, signaling = "IL10", color.heatmap = "Reds")
+netVisual_heatmap(cellchat, signaling = "MIF", color.heatmap = "Reds")
+netVisual_heatmap(cellchat, signaling = "BMP", color.heatmap = "Reds")
+netVisual_heatmap(cellchat, signaling = "THBS", color.heatmap = "Reds")
+netVisual_heatmap(cellchat, signaling = "WNT", color.heatmap = "Reds")
+netVisual_heatmap(cellchat, signaling = "PTN", color.heatmap = "Reds")
+netVisual_heatmap(cellchat, signaling = "KIT", color.heatmap = "Reds")
+#Ligand Receptor pair contribution to IL10
+netAnalysis_contribution(cellchat, signaling = "IL10")
+#Gene expression
+plotGeneExpression(cellchat, signaling = "IL10")
+
+
+#Ligand Receptor pair contribution to IL10
+netAnalysis_contribution(cellchat, signaling = "WNT")
+#Gene expression
+plotGeneExpression(cellchat, signaling = "WNT")
+
+#Ligand Receptor pair contribution to IL10
+netAnalysis_contribution(cellchat, signaling = "KIT")
+#Gene expression
+plotGeneExpression(cellchat, signaling = "KIT")
+
+
+```
+
+## Signaling roles
+
+```{r}
+cellchat <- netAnalysis_computeCentrality(cellchat, slot.name = "netP") # the slot 'netP' means the inferred intercellular communication network of signaling pathways
+# Visualize the computed centrality scores using heatmap, allowing ready identification of major signaling roles of cell groups
+netAnalysis_signalingRole_network(cellchat, signaling = "EPHA", width = 8, height = 2.5, font.size = 10)
+netAnalysis_signalingRole_network(cellchat, signaling = "EPHB", width = 8, height = 2.5, font.size = 10)
+```
+
+## Global Patterns
+```{r}
+library(NMF)
+library(ggalluvial)
+selectK(cellchat, pattern = "outgoing")
+```
+```{r}
+nPatterns = 3
+cellchat <- identifyCommunicationPatterns(cellchat, pattern = "outgoing", k = nPatterns)
+netAnalysis_river(cellchat, pattern = "outgoing")
+```
+

@@ -1,0 +1,137 @@
+---
+title: "Sawyers MacSpectrum"
+author: "Caden McQuillen"
+date: '2023-05-11'
+output: html_document
+---
+
+## Subset Macrophages
+```{r}
+#PtRP <- readRDS("./Saywers_data/Sawyers_full_PtRP.rds")
+PtRP_macrophages <- subset(PtRP, fine_cell_type == "Macrophages")
+```
+
+## Extract the gene expression matrix and convert to ensembl gene names
+```{r, message=FALSE}
+library(tidyverse)
+library(readxl)
+gene_matrix <- PtRP_macrophages@assays$RNA@scale.data
+ensembl_names <- read_excel("/Users/Caden/Downloads/id_convert_table_human.xlsx")
+
+newRownomes <-ensembl_names$`Gene stable ID`[match(rownames(gene_matrix), ensembl_names$`Gene name`)] 
+rownames(gene_matrix) <- newRownomes
+
+## Filter out genes with no expression
+gene_sums <- Matrix::rowSums(gene_matrix)
+nonzero_genes <- which(gene_sums > 0 )
+
+slim_matrix <- gene_matrix[nonzero_genes,]
+slim_matrix_convert <- tibble::rownames_to_column(as.data.frame(slim_matrix), "Ensembl")
+
+```
+
+## Run MacSpectrum
+```{r}
+library(macSpectrum)
+library(tibble)
+library(ggExtra)
+
+ages <- as.vector(PtRP_macrophages@meta.data$tp)
+
+macspec_combo <- macSpectrum::macspec(slim_matrix_convert, ages, select_hu_mo="hum")
+
+
+scatterplot <- ggplot(macspec_combo , aes(MPI, AMDI)) +geom_point(aes(colour = factor(Feature)))+ xlim(-20, 20) + annotate("segment", x = 0, xend = 0, y = -30, yend = 30,
+  colour = "black") + annotate("segment", x = -20, xend = 20, y = 0, yend = 0,
+  colour = "black")
+
+ggMarginal(scatterplot, groupColour = TRUE, groupFill = TRUE)
+
+
+histogram <- ggplot(macspec_combo, aes(x=MPI, color=Feature, fill = Feature)) +
+  geom_histogram(aes(y=..density..),alpha=0.5, position="identity") 
+ 
+
+
+m2 <- macspec_combo[which(macspec_combo$MPI <=0 ),]
+m2 <- m2[which(m2$AMDI >=0 ),]
+
+m0 <- macspec_combo[which(macspec_combo$MPI <= 0),]
+m0 <- m0[which(m0$AMDI < 0 ),]
+
+m1 <- macspec_combo[which(macspec_combo$MPI > 0 ),]
+m1 <- m1[which(m1$AMDI >= 0),]
+
+m3 <- macspec_combo[which(macspec_combo$MPI  > 0 ),]
+m3 <- m3[which(m3$AMDI < 0),]
+
+
+
+eightw_m2 <- which(m2$Feature == "8weeks")
+ninew_m2 <- which(m2$Feature == "9weeks")
+twelevew_m2 <- which(m2$Feature == "12weeks")
+sixteenw_m2 <- which(m2$Feature == "16weeks")
+
+eightw_m1 <- which(m1$Feature == "8weeks")
+ninew_m1 <- which(m1$Feature == "9weeks")
+twelevew_m1 <- which(m1$Feature == "12weeks")
+sixteenw_m1 <- which(m1$Feature == "16weeks")
+
+eightw_m0 <- which(m0$Feature == "8weeks")
+ninew_m0 <- which(m0$Feature == "9weeks")
+twelevew_m0 <- which(m0$Feature == "12weeks")
+sixteenw_m0 <- which(m0$Feature == "16weeks")
+
+eightw_m3 <- which(m3$Feature == "8weeks")
+ninew_m3 <- which(m3$Feature == "9weeks")
+twelevew_m3 <- which(m3$Feature == "12weeks")
+sixteenw_m3 <- which(m3$Feature == "16weeks")
+
+
+PtRP_total <- sum(length(m0),length(m1),length(m2), length(m3))
+eightw_total <- sum(length(eightw_m0),length(eightw_m1),length(eightw_m2), length(eightw_m3))
+ninew_total <- sum(length(ninew_m0),length(ninew_m1),length(ninew_m2), length(ninew_m3))
+twelevew_total <- sum(length(twelevew_m0),length(twelevew_m1),length(twelevew_m2), length(twelevew_m3))
+sixteenw_total <- sum(length(sixteenw_m0),length(sixteenw_m1),length(sixteenw_m2), length(sixteenw_m3))
+
+
+percents <- c((length(m0)+length(m3))/PtRP_total,length(m1)/PtRP_total,length(m2)/PtRP_total,
+              (length(eightw_m0)+length(eightw_m3))/eightw_total,length(eightw_m1)/eightw_total,length(eightw_m2)/eightw_total,
+              (length(ninew_m0)+length(ninew_m3))/ninew_total,length(ninew_m1)/ninew_total,length(ninew_m2)/ninew_total,
+              (length(twelevew_m0)+length(twelevew_m3))/twelevew_total,length(twelevew_m1)/twelevew_total,length(twelevew_m2)/twelevew_total,
+              (length(sixteenw_m0)+length(sixteenw_m3))/sixteenw_total,length(sixteenw_m1)/sixteenw_total,length(sixteenw_m2)/sixteenw_total)
+
+state <- c("M0", "M1", "M2","M0", "M1", "M2","M0", "M1", "M2","M0", "M1", "M2","M0", "M1", "M2")
+timepoint <- c(rep("PtRP All", 3),rep("PtRP 8wk", 3),rep("PtRP 9wk", 3),rep("PtRP 12wk", 3),rep("PtRP 16wk", 3))
+
+ploting_df <- data.frame(percents,state,timepoint)
+
+timepoint_order <- factor(ploting_df$timepoint, c("PtRP 8wk", "PtRP 9wk","PtRP 12wk","PtRP 16wk","PtRP All"))
+stacked_bar <- ggplot(ploting_df , aes(fill=state, y=percents, x=timepoint_order)) +
+  geom_bar(position="fill", stat="identity")
+
+
+```
+
+
+
+
+## Plot IL10 Expression by timepoint
+```{r}
+#PtRP_macrophages$tp <- factor(x = PtRP_macrophages$tp, levels = c('8weeks', '9weeks', "12weeks", "16weeks"))
+VlnPlot(PtRP_macrophages, features = c("IL10", "IL10RA", "IL10RB", "CREB1", "CREBBP"), group.by = "tp", slot = "scale.data")
+VlnPlot(PtRP_macrophages, features = c("IL10", "IL10RA", "IL10RB", "CREB1", "CREBBP"), group.by = "castrate", slot = "scale.data")
+```
+
+## Plot IL10 Expression by timepoint
+```{r}
+PtRP$tp <- factor(x = PtRP$tp, levels = c('8weeks', '9weeks', "12weeks", "16weeks"))
+
+#PtRP_pou2f3 <- subset(PtRP, fine_cell_type == "NEPC-P")
+
+VlnPlot(PtRP, features = c("POU2F3","IL10", "CREB1", "CREBBP", "KIT"), group.by = "tp", slot = "scale.data", idents = c( "NEPC-P"))
+VlnPlot(PtRP, features = c("POU2F3","IL10", "CREB1", "CREBBP", "KIT"), group.by = "castrate", slot = "scale.data", idents = c( "NEPC-P"))
+
+VlnPlot(PtRP, features = c("POU2F3","IL10", "CREB1", "CREBBP", "KIT"), group.by = "tp", slot = "scale.data", idents = c( "NEPC"))
+VlnPlot(PtRP, features = c("POU2F3","IL10", "CREB1", "CREBBP", "KIT"), group.by = "castrate", slot = "scale.data", idents = c( "NEPC"))
+```

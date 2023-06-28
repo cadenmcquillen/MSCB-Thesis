@@ -1,0 +1,605 @@
+---
+title: "Pou2f3_Seurat"
+author: "Caden McQuillen"
+date: '2023-01-20'
+output: 
+  html_document: 
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Creating Seurat Objects
+Read in individual samples and create seurat object for each
+Add associated meta data to each seurat object
+```{r Create Seurat Objects, eval=FALSE}
+
+#Currently Set eval = FALSE since Seurat Objects already generated
+
+library(Seurat)
+setwd("/Users/Caden/Desktop/Pou2f3_Data")
+
+####PRN 6 week#######
+PRN_6wk_1 <- Read10X(data.dir = "/Users/Caden/Desktop/Pou2f3_Data/M3489-mm10_hMYCN")
+PRN_6wk_1 <- CreateSeuratObject(counts = PRN_6wk_1, project = "Pou2f3")
+PRN_6wk_1@meta.data$data.sampleName = "M3489-mm10_hMYCN"
+PRN_6wk_1@meta.data$Genotype = "PRN"
+PRN_6wk_1@meta.data$Age = "6"
+
+PRN_6wk_2 <- Read10X(data.dir = "/Users/Caden/Desktop/Pou2f3_Data/M3490-mm10_hMYCN")
+PRN_6wk_2 <- CreateSeuratObject(counts = PRN_6wk_2, project = "Pou2f3")
+PRN_6wk_2@meta.data$data.sampleName = "M3490-mm10_hMYCN"
+PRN_6wk_2@meta.data$Genotype = "PRN"
+PRN_6wk_2@meta.data$Age = "6"
+
+
+####PRN 8 week#######
+PRN_8wk_1 <- Read10X(data.dir = "/Users/Caden/Desktop/Pou2f3_Data/M2861-mm10_hMYCN")
+PRN_8wk_1 <- CreateSeuratObject(counts = PRN_8wk_1, project = "Pou2f3")
+PRN_8wk_1@meta.data$data.sampleName = "M2861-mm10_hMYCN"
+PRN_8wk_1@meta.data$Genotype = "PRN"
+PRN_8wk_1@meta.data$Age = "8"
+
+PRN_8wk_2 <- Read10X(data.dir = "/Users/Caden/Desktop/Pou2f3_Data/M2872-mm10_hMYCN")
+PRN_8wk_2 <- CreateSeuratObject(counts = PRN_8wk_2, project = "Pou2f3")
+PRN_8wk_2@meta.data$data.sampleName = "M2872-mm10_hMYCN"
+PRN_8wk_2@meta.data$Genotype = "PRN"
+PRN_8wk_2@meta.data$Age = "8"
+
+PRN_8wk_3 <- Read10X(data.dir = "/Users/Caden/Desktop/Pou2f3_Data/M3056-mm10_hMYCN")
+PRN_8wk_3 <- CreateSeuratObject(counts = PRN_8wk_3, project = "Pou2f3")
+PRN_8wk_3@meta.data$data.sampleName = "M3056-mm10_hMYCN"
+PRN_8wk_3@meta.data$Genotype = "PRN"
+PRN_8wk_3@meta.data$Age = "8"
+
+####PR 8 week#######
+PR_8wk_1 <- Read10X(data.dir = "/Users/Caden/Desktop/Pou2f3_Data/M2822-mm10_hMYCN")
+PR_8wk_1 <- CreateSeuratObject(counts = PR_8wk_1, project = "Pou2f3")
+PR_8wk_1@meta.data$data.sampleName = "M2822-mm10_hMYCN"
+PR_8wk_1@meta.data$Genotype = "PR"
+PR_8wk_1@meta.data$Age = "8"
+
+PR_8wk_2 <- Read10X(data.dir = "/Users/Caden/Desktop/Pou2f3_Data/M3031-mm10_hMYCN")
+PR_8wk_2 <- CreateSeuratObject(counts = PR_8wk_2, project = "Pou2f3")
+PR_8wk_2@meta.data$data.sampleName = "M3031-mm10_hMYCN"
+PR_8wk_2@meta.data$Genotype = "PR"
+PR_8wk_2@meta.data$Age = "8"
+
+PR_8wk_3 <- Read10X(data.dir = "/Users/Caden/Desktop/Pou2f3_Data/M3032-mm10_hMYCN")
+PR_8wk_3 <- CreateSeuratObject(counts = PR_8wk_3, project = "Pou2f3")
+PR_8wk_3@meta.data$data.sampleName = "M3032-mm10_hMYCN"
+PR_8wk_3@meta.data$Genotype = "PR"
+PR_8wk_3@meta.data$Age = "8"
+
+
+```
+
+## Merge Seurat Objects
+```{r Merge Seurat Objects, eval= FALSE}
+#Currently Set to False, Already Merged
+
+
+#### PRN 6 Week Seurat Object #####
+
+PRN_6wk <- merge(x = PRN_6wk_1, y = PRN_6wk_2, project = "Pou2f3")
+
+
+#### PRN 8 Week Seurat Object #####
+
+PRN_8wk <- merge(x = PRN_8wk_1, y = PRN_8wk_2, project = "Pou2f3")
+PRN_8wk <- merge(x = PRN_8wk, y = PRN_8wk_3, project = "Pou2f3")
+
+#### PR 8 Week Seurat Object #####
+
+PR_8wk <- merge(x = PR_8wk_1, y = PR_8wk_2, project = "Pou2f3")
+PR_8wk <- merge(x = PR_8wk, y = PR_8wk_3, project = "Pou2f3")
+
+
+#### PRN 6 Week and 8 Week #####
+
+PRN_6wk_8wk <- merge(x = PRN_6wk, y = PRN_8wk, project = "Pou2f3")
+
+#### 8 Week PRN and PR #####
+
+PRN_PR_8wk <- merge(x = PRN_8wk, y = PR_8wk, project = "Pou2f3")
+
+
+#remove individual Seurat objects from memory
+rm(PRN_6wk_1)
+rm(PRN_6wk_2)
+rm(PRN_8wk_1)
+rm(PRN_8wk_2)
+rm(PRN_8wk_3)
+rm(PN_8wk_1)
+rm(PN_8wk_2)
+rm(PN_8wk_3)
+
+#Save combined Seurat Objects
+saveRDS(PRN_6wk, "PRN_6wk.rds")
+saveRDS(PRN_8wk, "PRN_8wk.rds")
+saveRDS(PR_8wk, "PR_8wk.rds")
+saveRDS(PRN_6wk_8wk, "PRN_6wk_8wk.rds")
+saveRDS(PRN_PR_8wk, "PRN_PR_8wk.rds")
+```
+
+## Seurat QC Data (PRN_6wk_8wk)
+Standard Seurat QC Pipeline using percentage of mitochondrial transcripts, percentage of ribosomal transcripts, number of genes (nFeatures), and number of mRNA transcripts (nCount) of each cell. Low nFeatures may indicate dying/dead cell, high nFeature and nCount may indicate doublet. High mitochonrial and ribosomal gene percentage may indicate ambient RNA contamination. 
+
+```{r Seurat QC (PRN_6wk_8wk), eval=FALSE}
+#Currently Set eval = FALSE
+
+#####Standard Seurat QC Pipeline ##########
+
+##Here we are working on just the PRN 6wk + 8wk Seurat Object##
+
+#Set active ident to samples
+PRN_6wk_8wk <- SetIdent(PRN_6wk_8wk, value = "data.sampleName")
+
+#get mitochondrial  %
+mito.features <- grep(pattern = "^mt-", x = rownames(x = PRN_6wk_8wk ), value = TRUE)
+percent.mito <- Matrix::colSums(x = GetAssayData(object = PRN_6wk_8wk , slot = "counts")[mito.features,])/Matrix::colSums(x = GetAssayData(object = PRN_6wk_8wk , slot = "counts")) 
+
+#get ribosome %
+ribo.features <- grep(pattern = "^rps", x = rownames(x = PRN_6wk_8wk ), value = TRUE)
+ribo.features <- c(ribo.features, grep(pattern = "^rpl", x = rownames(x = PRN_6wk_8wk ), value = TRUE))
+percent.ribo <- Matrix::colSums(x = GetAssayData(object = PRN_6wk_8wk , slot = "counts")[ribo.features,])/Matrix::colSums(x = GetAssayData(object = PRN_6wk_8wk , slot = "counts"))
+
+# # # # Add % mito and ribo to the meta data
+PRN_6wk_8wk [["percent.mito"]] <- percent.mito
+PRN_6wk_8wk [["percent.ribo"]] <- percent.ribo
+
+
+#Plot for each sample Pre QC
+plot(VlnPlot(object = PRN_6wk_8wk , features = "nFeature_RNA"))
+plot(VlnPlot(object = PRN_6wk_8wk , features = "nCount_RNA"))
+plot(VlnPlot(object = PRN_6wk_8wk , features = "percent.mito"))
+plot(VlnPlot(object = PRN_6wk_8wk , features = "percent.ribo"))
+
+
+
+```
+
+## QC Thresholds (PRN_6wk_8wk)
+```{r QC Thresholds (PRN_6wk_8wk), eval=FALSE}
+#Currently Set eval = FALSE
+
+
+#####Apply QC thresholds #######
+
+ PRN_6wk_8wk = subset(x = PRN_6wk_8wk, 
+                         subset = nFeature_RNA > 200 & 
+                           nFeature_RNA < 7500 & 
+                           nCount_RNA > 500 &
+                           nCount_RNA < 35000 &
+                           percent.mito < .15 & 
+                           percent.ribo < .6 )
+
+#Plot for each sample post QC
+plot(VlnPlot(object = PRN_6wk_8wk , features = "nFeature_RNA"))
+plot(VlnPlot(object = PRN_6wk_8wk , features = "nCount_RNA"))
+plot(VlnPlot(object = PRN_6wk_8wk , features = "percent.mito"))
+plot(VlnPlot(object = PRN_6wk_8wk , features = "percent.ribo"))
+
+```
+
+
+## Clustering (PRN_6wk_8wk)
+```{r Clustering (PRN_6wk_8wk), eval=FALSE}
+
+#Currently Set eval = FALSE
+
+###### Standard Seurat Pipeline: Cont ######
+
+#using default Seurat parameters
+
+#Normalize 
+PRN_6wk_8wk <-F(PRN_6wk_8wk, normalization.method = "LogNormalize", scale.factor = 10000)
+
+#Find Highly Variable Features
+PRN_6wk_8wk <- FindVariableFeatures(PRN_6wk_8wk, selection.method = "vst", nfeatures = 2000)
+
+#Scale Data
+all.genes <- rownames(PRN_6wk_8wk)
+PRN_6wk_8wk <- ScaleData(PRN_6wk_8wk, features = all.genes)
+
+#PCA Dim Reduction
+PRN_6wk_8wk <- RunPCA(PRN_6wk_8wk, features = VariableFeatures(object = PRN_6wk_8wk))
+
+#K-Nearest Neighbors Graph
+PRN_6wk_8wk <- FindNeighbors(PRN_6wk_8wk, dims = 1:10)
+
+#Cluster cells (Louvain algorithm)
+PRN_6wk_8wk <- FindClusters(PRN_6wk_8wk, resolution = 0.5)
+
+#UMAP
+PRN_6wk_8wk <- RunUMAP(PRN_6wk_8wk, dims = 1:10)
+
+#TSNE
+PRN_6wk_8wk <- RunTSNE(PRN_6wk_8wk, dims = 1:10)
+
+DimPlot(PRN_6wk_8wk, reduction = "umap")
+DimPlot(PRN_6wk_8wk, reduction = "tsne")
+DimPlot(PRN_6wk_8wk, reduction = "tsne", group.by = "Age")
+DimPlot(PRN_6wk_8wk, reduction = "tsne", split.by = "Age")
+
+#Save Post QC and Clustered Seurat Object
+saveRDS(PRN_6wk_8wk, "PRN_6wk_8wk_QC_Clustered.rds")
+
+```
+
+```{r Marker Genes (PRN_6wk_8wk), eval= FALSE}
+
+#Currently Set eval = FALSE
+
+######Generate Differential Expressed Genes for each cluster #######
+
+PRN_6wk_8wk <- SetIdent(PRN_6wk_8wk,value = "RNA_snn_res.0.5")
+
+#Generate Markers
+markers <- FindAllMarkers(PRN_6wk_8wk, min.pct = 0.25, logfc.threshold = 0.25)
+write.csv(markers, "PRN_6wk_8wk_Cluster_Markers.csv")
+
+library(dplyr)
+#Filter by top 20 genes
+markers %>%
+  group_by(cluster) %>%
+  top_n(n = 20, wt = avg_log2FC) -> top20
+
+```
+
+## Cell Type Annotations (PRN_6wk_8wk)
+```{r Cell Type Annotations (PRN_6wk_8wk), eval=FALSE}
+
+#Currently Set eval = FALSE
+
+###Cell Type Labeling #####
+
+# Cell Type Identities: 0 -> "Granulocytes", 1 -> "Macrophages" , 2 -> "Luminal Epithial" , 3-> "Fibroblasts" , 4-> "Luminal Epithial" , 5-> "Fibroblasts" ?, 6-> "Goblet Cells" , 7-> "Neuroendocrine", 8-> "Fibroblasts" , 9-> "Macrophages" , 10 -> "Seminal Vesical" , 11 -> "Macrophages" , 12-> "Macrophages" , 13-> "Endothelium" , 14 -> "Neuroendocrine" , 15 -> "Seminal Vesical" , 16 -> "Fibroblasts"
+
+
+#Rename Clusters with Cell Type Labels
+PRN_6wk_8wk <- RenameIdents(PRN_6wk_8wk,  `0`='Granulocytes',`1`= 'Macrophages',`2`='Luminal Epithelium', `3`='Fibroblasts', `4`='Basal Epithelium', `5`='Fibroblasts',`6`='Basal Epithelium',`7`='Neuroendocrine',`8`='Fibroblasts',`9`='Macrophages',`10`='Seminal Vesicle',`11`='T Cells',`12`='Macrophages',`13`='Endothelium',`14`='Neuroendocrine',`15`='Luminal Epithelium',`16`='Fibroblasts')
+
+#Plot with Cell Type Labels
+DimPlot(PRN_6wk_8wk, reduction = "tsne")
+#Check Pou2f3 Expression
+FeaturePlot(object = PRN_6wk_8wk, features = 'Pou2f3', reduction = "tsne", max.cutoff = 2)
+FeaturePlot(object = PRN_6wk_8wk, features = 'Pou2f3', reduction = "tsne", max.cutoff = 2, split.by = "Age")
+#Add Cell Types as meta deta
+PRN_6wk_8wk <- AddMetaData(object = PRN_6wk_8wk, metadata= PRN_6wk_8wk@active.ident, col.name = "cell.type")
+
+
+library(ggplot2)
+#marker gene dotplot
+celltype_marker_genes <- c("Csf3r", "S100a8", "Trem1", "C1qa", "Arg1", "Cd68", "Krt18", "Cd24a", "Epcam", "Col3a1", "Myl9", "Acta2", "Krt14", "Psca", "Ly6d", "Ascl1", "Insm1","Chga","Svs3a", "Svs3b", "Svs6", "Cdh5", "Pecam1", "Flt1",  "Muc2", "Muc3", "Muc13")
+markerplot = DotPlot(object = PRN_6wk_8wk, features = celltype_marker_genes,  group.by = "cell.type") 
+markerplot = markerplot + theme(axis.title.x.bottom =element_blank(),axis.title.y =element_blank(),axis.text.x=element_text(size=10),axis.text.y=element_text(size=10))+ scale_x_discrete(guide = guide_axis(angle = 45))+ theme(axis.title.x = element_text(margin = margin(t = 70)), axis.text = element_text(face="bold"))
+
+
+
+#Create vector of all cells expressing Pou2f3
+Pou2f3_cells <- WhichCells(PRN_6wk_8wk, expression = Pou2f3 > 0)
+
+#Add meta data if cell expresses Pou2f3
+PRN_6wk_8wk$Pou2f3_Expression<- ifelse(colnames(PRN_6wk_8wk) %in% Pou2f3_cells, "Pos", "Neg")
+
+
+#Get Number of Pou2f3 Postive Neuroendocrine Cells in 6wk and 8wk mice
+Pou2f3_cells_6wk <- WhichCells(PRN_6wk_8wk, ident = "Neuroendocrine", expression = Pou2f3 > 0 & Age == "6") 
+Pou2f3_cells_8wk <- WhichCells(PRN_6wk_8wk, ident = "Neuroendocrine", expression = Pou2f3 > 0 & Age == "8") 
+
+#Get Total Number of Neuroendocrine Cells in 6wk and 8wk mice
+Neuroendocrine_cells_6wk <- WhichCells(PRN_6wk_8wk, ident = "Neuroendocrine", expression  = Age == "6") 
+Neuroendocrine_cells_8wk <- WhichCells(PRN_6wk_8wk, ident = "Neuroendocrine", expression  = Age == "8") 
+
+#Get Total Number of Cells in 6wk and 8wk mice
+cells_6wk <- WhichCells(PRN_6wk_8wk, expression  = Age == "6") #319 Pou2f3 Cells
+cells_8wk <- WhichCells(PRN_6wk_8wk, expression  = Age == "8") #152 Pou2f3 Cells
+
+
+#Save Seurat Object
+saveRDS(PRN_6wk_8wk, "Annotated_PRN_6wk_8wk.rds")
+
+```
+
+
+## Reannotate Cell Type Identies (T Cells)
+```{r, eval=FALSE}
+
+PRN_6wk_8wk$cell.type3 <- PRN_6wk_8wk$seurat_clusters
+PRN_6wk_8wk$cell.type3 <- plyr::mapvalues(
+    x = PRN_6wk_8wk$seurat_clusters,
+    from = c("0","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16"),
+    to = c("Granulocytes","Macrophages","Luminal Epithelium","Fibroblasts","Basal Epithelium","Fibroblasts","Basal Epithelium","Neuroendocrine","Fibroblasts","Macrophages","Seminal Vesicle","T Cells",    "Macrophages","Endothelium","Pou2f3_Neuroendocrine","Luminal Epithelium",   "Fibroblasts"))
+
+
+saveRDS(PRN_6wk_8wk, "./Seurat_Objects/Annotated_PRN_6wk_8wk.rds")
+
+
+PRN_6wk_8wk <-SetIdent(PRN_6wk_8wk, value = "cell.type3")
+#Plot with Cell Type Labels
+DimPlot(PRN_6wk_8wk, reduction = "tsne")
+
+#marker gene dotplot
+celltype_marker_genes <- c("Csf3r", "S100a8", "Trem1", "C1qa", "Arg1", "Cd68", "Krt18", "Cd24a", "Epcam", "Col3a1", "Myl9", "Acta2", "Krt14", "Psca", "Ly6d", "Ascl1", "Insm1","Chga","Svs3a", "Svs3b", "Svs6", "Trbc2", "Cd3d","Cd3g","Cd3e", "Cdh5", "Pecam1", "Flt1", "Pou2f3", "Muc2", "Muc3", "Muc13")
+markerplot = DotPlot(object = PRN_6wk_8wk, features = celltype_marker_genes,  group.by = "cell.type3") 
+markerplot = markerplot + theme(axis.title.x.bottom =element_blank(),axis.title.y =element_blank(),axis.text.x=element_text(size=10),axis.text.y=element_text(size=10))+ scale_x_discrete(guide = guide_axis(angle = 45))+ theme(axis.title.x = element_text(margin = margin(t = 70)), axis.text = element_text(face="bold"))
+
+```
+
+
+## Tuft Cell Markers (PRN_6wk_8wk)
+```{r Tuft Cell Markers (PRN_6wk_8wk), eval=FALSE}
+
+#Currently Set eval = FALSE
+
+#FeaturePlot(object = PRN_6wk_8wk, features = 'Pou2af2', reduction = "tsne") #OCT-T1 not found
+#FeaturePlot(object = PRN_6wk_8wk, features = 'C11orf53', reduction = "tsne") #OCA-T1 not found
+FeaturePlot(object = PRN_6wk_8wk, features = 'Pcdh20', reduction = "tsne") # Surface Marker
+
+#Tuft Cell Markers
+FeaturePlot(object = PRN_6wk_8wk, features = 'Avil', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Dclk1', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Il17rb', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Sox9', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Gfi1b', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Chat', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Ascl2', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Trpm5', reduction = "tsne")
+
+#Coexpressed Genes with Tuft like cancer cells 
+FeaturePlot(object = PRN_6wk_8wk, features = 'Colca2', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Bcl2', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Foxi1', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Kit', reduction = "tsne")
+
+#Plot all highly expressed Tuft Markers
+FeaturePlot(object = PRN_6wk_8wk, features = c("Avil", "Il17rb", "Ascl2", "Trpm5", "Colca2"), reduction = "tsne")
+```
+
+## Pou2f3 Neuroendocrine vs Non-Pou2f3 Neuroendocrine DEGs
+```{r Pou2f3 Neuroendocrine vs Non-Pou2f3 Neuroendocrine DEGs, eval=FALSE}
+
+#Currently Set eval = FALSE
+
+#set current ident back to unbiased clusters since both neuroendocrine clusters are labeled as "neuroendocrine"
+
+PRN_6wk_8wk <- SetIdent(PRN_6wk_8wk,value = "RNA_snn_res.0.5")
+Neuroendocrine_DEGs = FindMarkers(PRN_6wk_8wk, ident.1 = "14", ident.2 = "7")
+write.csv(Neuroendocrine_DEGs, "Neuroendocrine_Degs.csv")
+
+#Set current ident back to cell type labels
+PRN_6wk_8wk <- SetIdent(PRN_6wk_8wk,value = "cell.type")
+
+#Within all Neuroendocrine cells, find markers for Pou2f3 postive cells
+Pou2f3_Pos_Neuroendocrine_DEGs <- FindMarkers(PRN_6wk_8wk, ident.1 = "Pos", group.by = 'Pou2f3_Expression', subset.ident = "Neuroendocrine")
+write.csv(Pou2f3_Pos_Neuroendocrine_DEGs, "Pou2f3_Postive_Neuroendocrine_Degs.csv")
+
+#DEGs that are upregulated in Pou2f3 Positive Neuroendocrine cells 
+Upregulated_DEGs = subset(DEGs, DEGs$avg_log2FC>0)
+write.csv(Upregulated_DEGs, "Upregulated_Neuroendocrine_Degs_by_Pou2f3_Positive.csv")
+
+```
+
+## T Cell Markers
+```{r, eval = FALSE}
+#PRN_6wk_8wk = readRDS("./Seurat_Objects/Annotated_PRN_6wk_8wk.rds")
+
+#General T Cell Markers
+FeaturePlot(object = PRN_6wk_8wk, features = 'Trbc2', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Cd3d', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Cd3g', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Cd3e', reduction = "tsne")
+
+#Cytotoxic T Cell Markers
+
+FeaturePlot(object = PRN_6wk_8wk, features = 'Trac', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Cd8a', reduction = "tsne")
+
+#T Helper Cells
+FeaturePlot(object = PRN_6wk_8wk, features = 'Ccr4', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Cd4', reduction = "tsne")
+
+#T Memory Cells
+FeaturePlot(object = PRN_6wk_8wk, features = 'Lck', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Ptprc', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Gimap4', reduction = "tsne")
+
+#Treg 
+FeaturePlot(object = PRN_6wk_8wk, features = 'Ikzf2', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Foxp3', reduction = "tsne")
+
+
+#
+```
+
+## Ccl8 receptor expression
+```{r}
+
+#PRN_6wk_8wk = readRDS("./Seurat_Objects/Annotated_PRN_6wk_8wk.rds")
+
+#General T Cell Markers
+FeaturePlot(object = PRN_6wk_8wk, features = 'Ccr1', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Ccr2', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Ccr3', reduction = "tsne")
+FeaturePlot(object = PRN_6wk_8wk, features = 'Ccr5', reduction = "tsne")
+```
+
+
+
+
+## Seurat QC Data (PR_8wk)
+Standard Seurat QC Pipeline using percentage of mitochondrial transcripts, percentage of ribosomal transcripts, number of genes (nFeatures), and number of mRNA transcripts (nCount) of each cell. Low nFeatures may indicate dying/dead cell, high nFeature and nCount may indicate doublet. High mitochonrial and ribosomal gene percentage may indicate ambient RNA contamination. 
+
+```{r Seurat QC (PR_8wk),eval=FALSE}
+#Currently Set eval = FALSE
+
+#####Standard Seurat QC Pipeline ##########
+
+##Here we are working on just the PN_8wk Seurat Object##
+
+PR_8wk = readRDS("./Seurat_Objects/PR_8wk.rds")
+#Set active ident to samples
+PR_8wk<- SetIdent(PR_8wk, value = "data.sampleName")
+
+#get mitochondrial  %
+mito.features <- grep(pattern = "^mt-", x = rownames(x = PR_8wk ), value = TRUE)
+percent.mito <- Matrix::colSums(x = GetAssayData(object = PR_8wk , slot = "counts")[mito.features,])/Matrix::colSums(x = GetAssayData(object = PR_8wk , slot = "counts")) 
+
+#get ribosome %
+ribo.features <- grep(pattern = "^rps", x = rownames(x = PR_8wk ), value = TRUE)
+ribo.features <- c(ribo.features, grep(pattern = "^rpl", x = rownames(x = PR_8wk ), value = TRUE))
+percent.ribo <- Matrix::colSums(x = GetAssayData(object = PR_8wk , slot = "counts")[ribo.features,])/Matrix::colSums(x = GetAssayData(object = PR_8wk , slot = "counts"))
+
+# # # # Add % mito and ribo to the meta data
+PR_8wk [["percent.mito"]] <- percent.mito
+PR_8wk [["percent.ribo"]] <- percent.ribo
+
+
+#Plot for each sample Pre QC
+plot(VlnPlot(object = PR_8wk , features = "nFeature_RNA"))
+plot(VlnPlot(object = PR_8wk , features = "nCount_RNA"))
+plot(VlnPlot(object = PR_8wk , features = "percent.mito"))
+plot(VlnPlot(object = PR_8wk , features = "percent.ribo"))
+
+
+
+```
+
+## QC Thresholds (PR_8wk)
+```{r QC Thresholds (PR_8wk), eval=FALSE}
+#Currently Set eval = FALSE
+
+
+#####Apply QC thresholds #######
+
+ PR_8wk = subset(x = PR_8wk, 
+                         subset = nFeature_RNA > 200 & 
+                           nFeature_RNA < 7500 & 
+                           nCount_RNA > 500 &
+                           nCount_RNA < 35000 &
+                           percent.mito < .15 & 
+                           percent.ribo < .6 )
+
+#Plot for each sample post QC
+plot(VlnPlot(object = PR_8wk , features = "nFeature_RNA"))
+plot(VlnPlot(object = PR_8wk , features = "nCount_RNA"))
+plot(VlnPlot(object = PR_8wk , features = "percent.mito"))
+plot(VlnPlot(object = PR_8wk , features = "percent.ribo"))
+
+```
+
+
+## Clustering (PR_8wk)
+```{r Clustering (PR_8wk), eval=FALSE}
+
+#Currently Set eval = FALSE
+
+###### Standard Seurat Pipeline: Cont ######
+
+#using default Seurat parameters
+
+#Normalize 
+PR_8wk <- NormalizeData(PR_8wk, normalization.method = "LogNormalize", scale.factor = 10000)
+
+#Find Highly Variable Features
+PR_8wk <- FindVariableFeatures(PR_8wk, selection.method = "vst", nfeatures = 2000)
+
+#Scale Data
+all.genes <- rownames(PR_8wk)
+PR_8wk <- ScaleData(PR_8wk, features = all.genes)
+
+#PCA Dim Reduction
+PR_8wk <- RunPCA(PR_8wk, features = VariableFeatures(object = PR_8wk))
+
+#K-Nearest Neighbors Graph
+PR_8wk <- FindNeighbors(PR_8wk, dims = 1:10)
+
+#Cluster cells (Louvain algorithm)
+PR_8wk <- FindClusters(PR_8wk, resolution = 0.3) #Used lower resolution, 0.5 had too many clusters which can cause bigger clusters to be "broken" up into multiple clusters diluting the strength of that cell type's marker genes
+
+#UMAP
+PR_8wk <- RunUMAP(PR_8wk, dims = 1:10)
+
+#TSNE
+PR_8wk <- RunTSNE(PR_8wk, dims = 1:10)
+
+DimPlot(PR_8wk, reduction = "umap")
+DimPlot(PR_8wk, reduction = "tsne")
+DimPlot(PR_8wk, reduction = "tsne", group.by = "Age")
+DimPlot(PR_8wk, reduction = "tsne", split.by = "Age")
+
+#Save Post QC and Clustered Seurat Object
+saveRDS(PR_8wk, "PR_8wk_QC_Clustered.rds")
+
+```
+
+```{r Marker Genes (PR_8wk), eval= FALSE}
+
+#Currently Set eval = FALSE
+
+######Generate Differential Expressed Genes for each cluster #######
+
+PR_8wk <- SetIdent(PR_8wk,value = "RNA_snn_res.0.3") #have to change to 0.3 here
+
+#Generate Markers
+markers <- FindAllMarkers(PR_8wk, min.pct = 0.25, logfc.threshold = 0.25)
+write.csv(markers, "PR_8wk_Cluster_Markers.csv")
+
+library(dplyr)
+#Filter by top 20 genes
+markers %>%
+  group_by(cluster) %>%
+  top_n(n = 20, wt = avg_log2FC) -> top20
+
+```
+
+
+## Tuft Cell Markers (PR_8wk)
+```{r Tuft Cell Markers (PR_8wk), eval=FALSE}
+
+#Currently Set eval = FALSE
+
+#Surface Marker
+FeaturePlot(object = PRN_6wk_8wk, features = 'Pcdh20', reduction = "tsne") 
+
+#Tuft Cell Markers
+FeaturePlot(object = PR_8wk, features = 'Pou2f3', reduction = "tsne")
+FeaturePlot(object = PR_8wk, features = 'Avil', reduction = "tsne")
+FeaturePlot(object = PR_8wk, features = 'Dclk1', reduction = "tsne")
+FeaturePlot(object = PR_8wk, features = 'Il17rb', reduction = "tsne")
+FeaturePlot(object = PR_8wk, features = 'Sox9', reduction = "tsne")
+FeaturePlot(object = PR_8wk, features = 'Gfi1b', reduction = "tsne")
+FeaturePlot(object = PR_8wk, features = 'Chat', reduction = "tsne")
+FeaturePlot(object = PR_8wk, features = 'Ascl2', reduction = "tsne")
+FeaturePlot(object = PR_8wk, features = 'Trpm5', reduction = "tsne")
+
+#Coexpressed Genes with Tuft like cancer cells 
+FeaturePlot(object = PR_8wk, features = 'Colca2', reduction = "tsne")
+FeaturePlot(object = PR_8wk, features = 'Bcl2', reduction = "tsne")
+FeaturePlot(object = PR_8wk, features = 'Foxi1', reduction = "tsne")
+FeaturePlot(object = PR_8wk, features = 'Kit', reduction = "tsne")
+
+#Plot all highly expressed Tuft Markers
+FeaturePlot(object = PR_8wk, features = c("Avil", "Il17rb", "Ascl2", "Trpm5", "Colca2"), reduction = "tsne")
+```
+
+
+## Il10 Genes (PR_8wk)
+```{r}
+#PR <- readRDS("/Users/Caden/Desktop/Pou2f3_data/Seurat_Objects/PR_8wk_QC_Clustered.rds")
+DimPlot(PR, reduction = "tsne")
+VlnPlot(object = PR, features = 'Il10', pt.size=0)
+VlnPlot(object = PR, features = 'Il10ra')
+VlnPlot(object = PR, features = 'Il10rb')
+
+
+```
+
+
+
+
+
+

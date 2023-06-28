@@ -1,0 +1,204 @@
+---
+title: "Sawyers_data"
+author: "Caden McQuillen"
+date: '2023-05-08'
+output: html_document
+---
+
+## Convert Anndata object to Seurat
+```{r}
+library(Seurat)
+library(SeuratData)
+library(SeuratDisk)
+library(MuDataSeurat)
+
+
+sawyers <- ReadH5AD("./Sawyers_data/GSM6428979_adata.gemm.wt_plus_gfp.final.h5ad", layers = c("counts", "data"))
+
+
+```
+
+
+```{r}
+DefaultAssay(sawyers) <- "RNA"
+sawyers <- SetIdent(sawyers, value = "cell_type_final")
+DimPlot(sawyers, reduction = "umap")
+FeaturePlot(object = sawyers, features = 'POU2F3', slot = "scale.data")
+```
+
+## Pseudobullk of Sawyers Pou2f3 cluster
+```{r}
+
+sawyers_pou2f3 <- subset(sawyers, idents = "POU2F3")
+sawyers_pou2f3 <- rowMeans(sawyers_pou2f3@assays$RNA@data)
+
+names(sawyers_pou2f3)  <- tolower(names(sawyers_pou2f3))
+
+```
+
+## Pseudobulk of PRN Pou2f3
+```{r}
+PRN <- readRDS("./Seurat_Objects/Annotated_PRN_6wk_8wk.rds")
+PRN <- SetIdent(PRN, value = "cell.type3")
+PRN_pou2f3 <- subset(PRN, idents = "Pou2f3_Neuroendocrine")
+rm(PRN)
+
+PRN_pou2f3 <- rowMeans(PRN_pou2f3@assays$RNA@counts)
+names(PRN_pou2f3)  <- tolower(names(PRN_pou2f3))
+
+```
+
+## Spearmans correlation of Pou2f3 clusters
+```{r}
+overlap <- intersect(names(sawyers_pou2f3), names(PRN_pou2f3))
+sawyers_pou2f3 <- sawyers_pou2f3[names(sawyers_pou2f3) %in% overlap]
+PRN_pou2f3 <- PRN_pou2f3[names(PRN_pou2f3) %in% overlap]
+
+sawyers_pou2f3 <- sawyers_pou2f3[order(names(sawyers_pou2f3))]
+PRN_pou2f3 <- PRN_pou2f3[order(names(PRN_pou2f3))]
+
+plot_df <- data.frame(sawyers_pou2f3, PRN_pou2f3)
+
+library("ggpubr")
+ggscatter(plot_df, x = "sawyers_pou2f3", y = "PRN_pou2f3", 
+          add = "reg.line", 
+          add.params = list(color = "red", fill = "lightgray"),
+          conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "PtRP Pou2f3", ylab = "PRN Pou2f3")
+
+
+```
+
+
+
+
+## Pseudobullk of Sawyers NEPC cluster
+```{r}
+
+sawyers_NEPC <- subset(sawyers, idents = "NEPC")
+sawyers_NEPC <- rowMeans(sawyers_NEPC@assays$RNA@data)
+
+names(sawyers_NEPC)  <- tolower(names(sawyers_NEPC))
+
+```
+
+## Pseudobulk of PRN NEPC
+```{r}
+PRN <- readRDS("./Seurat_Objects/Annotated_PRN_6wk_8wk.rds")
+PRN <- SetIdent(PRN, value = "cell.type3")
+PRN_NEPC <- subset(PRN, idents = "Neuroendocrine")
+rm(PRN)
+
+PRN_NEPC <- rowMeans(PRN_NEPC@assays$RNA@counts)
+names(PRN_NEPC)  <- tolower(names(PRN_NEPC))
+
+```
+
+## Spearmans correlation of NEPC clusters
+```{r}
+overlap <- intersect(names(sawyers_NEPC), names(PRN_NEPC))
+sawyers_NEPC <- sawyers_NEPC[names(sawyers_NEPC) %in% overlap]
+PRN_NEPC <- PRN_NEPC[names(PRN_NEPC) %in% overlap]
+
+sawyers_NEPC <- sawyers_NEPC[order(names(sawyers_NEPC))]
+PRN_NEPC <- PRN_NEPC[order(names(PRN_NEPC))]
+
+plot_df2 <- data.frame(sawyers_NEPC, PRN_NEPC)
+
+library("ggpubr")
+ggscatter(plot_df2, x = "sawyers_NEPC", y = "PRN_NEPC", 
+          add = "reg.line", 
+          add.params = list(color = "red", fill = "lightgray"),
+          conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "PtRP NEPC", ylab = "PRN NEPC")
+
+
+```
+
+
+
+
+
+## Pseudobulk of PRN T Cells
+```{r}
+PRN <- readRDS("./Seurat_Objects/Annotated_PRN_6wk_8wk.rds")
+PRN <- SetIdent(PRN, value = "cell.type3")
+PRN_Granulocytes <- subset(PRN, idents = "Granulocytes")
+rm(PRN)
+
+PRN_Granulocytes <- rowMeans(PRN_Granulocytes@assays$RNA@counts)
+names(PRN_Granulocytes)  <- tolower(names(PRN_Granulocytes))
+
+```
+
+## Spearmans correlation of Control 
+```{r}
+overlap <- intersect(names(sawyers_NEPC), names(PRN_Granulocytes))
+sawyers_NEPC <- sawyers_NEPC[names(sawyers_NEPC) %in% overlap]
+PRN_Granulocytes <- PRN_Granulocytes[names(PRN_Granulocytes) %in% overlap]
+
+sawyers_NEPC <- sawyers_NEPC[order(names(sawyers_NEPC))]
+PRN_Granulocytes <- PRN_Granulocytes[order(names(PRN_Granulocytes))]
+
+plot_df3 <- data.frame(sawyers_NEPC, PRN_Granulocytes)
+
+library("ggpubr")
+ggscatter(plot_df3, x = "sawyers_NEPC", y = "PRN_Granulocytes", 
+          add = "reg.line", 
+          add.params = list(color = "red", fill = "lightgray"),
+          conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "PtRP NEPC", ylab = "PRN Granulocytes")
+
+
+```
+
+## Check for IL10 in Pou2f3
+```{r}
+FeaturePlot(object = sawyers, features = 'IL10', slot = "scale.data")
+VlnPlot(sawyers, features = "IL10", slot = "scale.data")
+```
+
+
+
+
+## Create Seurat object of full Sawyers anndata with all cell types
+```{r}
+library(Seurat)
+library(SeuratData)
+library(SeuratDisk)
+library(MuDataSeurat)
+
+
+sawyers_full <- ReadH5AD("./Sawyers_data/GSM6428979_adata.gemm.combined.final.h5ad")
+DefaultAssay(sawyers_full) <- "RNA"
+sawyers_full <- SetIdent(sawyers_full, value = "fine_cell_type")
+DimPlot(sawyers_full, reduction = "umap")
+FeaturePlot(object = sawyers_full, features = 'POU2F3', slot = "scale.data")
+FeaturePlot(object = sawyers_full, features = 'IL10', slot = "scale.data")
+FeaturePlot(object = sawyers_full, features = 'IL10RA', slot = "scale.data")
+FeaturePlot(object = sawyers_full, features = 'IL10RA', slot = "scale.data")
+
+saveRDS(sawyers_full, "./Sawyers_data/Sawyers_seurat_full.rds")
+#GSM6428979_adata.gemm.combined.final.h5ad
+```
+
+
+## Subset to only PtRP
+```{r}
+PtRP <- subset(sawyers_full, genotype == "PRP")
+saveRDS(PtRP, "./Sawyers_data/Sawyers_full_PtRP.rds")
+```
+
+## Check expression in PtRP
+```{r}
+PtRP$tp <- factor(x = PtRP$tp, levels = c('8weeks', '9weeks', "12weeks", "16weeks"))
+VlnPlot(PtRP, features = c("SOX4", "SOX21", "CTCF"), idents = c("NEPC", "NEPC-P", "EMT", "Mutant_L1", "Mutant_L2", "Mutant_B1", "L3"), slot = "scale.data")
+VlnPlot(PtRP, features = c("SOX4", "SOX21", "CTCF"), idents = c("NEPC-P"), slot = "scale.data", group.by = "tp")
+VlnPlot(PtRP, features = c("SOX4", "SOX21", "CTCF"), idents = c("NEPC"), slot = "scale.data", group.by = "tp")
+VlnPlot(PtRP, features = c("SOX4", "SOX21", "CTCF"), idents = c("NEPC-P"), slot = "scale.data", group.by = "castrate")
+VlnPlot(PtRP, features = c("SOX4", "SOX21", "CTCF"), idents = c("NEPC"), slot = "scale.data", group.by = "castrate")
+```
+

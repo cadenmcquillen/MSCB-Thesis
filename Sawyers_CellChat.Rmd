@@ -1,0 +1,229 @@
+---
+title: "Sawyers_CellChat"
+author: "Caden McQuillen"
+date: '2023-05-09'
+output: html_document
+---
+
+## Extract data from Seurat object
+```{r Suerat Extraction, eval=FALSE}
+library(Seurat)
+#sawyers_full <- readRDS("./Sawyers_data/Sawyers_seurat_full.rds")
+data.input <- GetAssayData(sawyers_full, assay = "RNA", slot = "scale.data") # normalized data matrix
+labels <- sawyers_full$fine_cell_type
+meta <- data.frame(group = labels, row.names = names(labels)) # create a dataframe of the cell labels
+```
+
+
+## Running CellChat Part 1
+```{r CellChat P1, eval=TRUE}
+library(CellChat)
+library(patchwork)
+options(stringsAsFactors = FALSE)
+
+#create cellchat object
+cellchat <- createCellChat(object = data.input, meta = meta, group.by = "group")
+
+#select DB (we are using human because of sawyers matrix is human for some reason)
+CellChatDB <- CellChatDB.human
+
+#Use entire DB
+CellChatDB.use <- CellChatDB # simply use the default CellChatDB
+
+# set the used database in the object
+cellchat@DB <- CellChatDB.use
+
+# subset the expression data of signaling genes for saving computation cost
+cellchat <- subsetData(cellchat) # This step is necessary even if using the whole database
+future::plan("multisession", workers = 4) # do parallel
+cellchat <- identifyOverExpressedGenes(cellchat)
+cellchat <- identifyOverExpressedInteractions(cellchat)
+
+# project gene expression data onto PPI (Optional)
+cellchat <- projectData(cellchat, PPI.human)
+
+saveRDS(cellchat, "./Sawyers_data/CellChat/Sawyers_cellchat_part1.rds")
+```
+
+
+## Running CellChat Part 2
+```{r CellChat Part 2, eval=TRUE}
+
+#triMean is used for calculating the average gene expression per cell group. 
+cellchat <- computeCommunProb(cellchat)
+
+# Filter out the cell-cell communication if there are only few number of cells in certain cell groups
+cellchat <- filterCommunication(cellchat, min.cells = 10)
+
+
+# data frame consisting of all the inferred cell-cell communications at the level of ligands/receptors
+df.net_ligand_receptor <- subsetCommunication(cellchat)
+write.csv(df.net_ligand_receptor, "./Sawyers_data/CellChat/Ligand_Receptor_CellChat_df.csv")
+
+#compute the communication probability on signaling pathway level by summarizing the communication probabilities of all ligands-receptors interactions associated with each signaling pathway
+cellchat <- computeCommunProbPathway(cellchat)
+df.net_pathway <- subsetCommunication(cellchat, slot.name = "netP")
+write.csv(df.net_pathway, "./Sawyers_data/CellChat/Pathway_CellChat_df.csv")
+
+#calculate the aggregated cell-cell communication network by counting the number of links or summarizing the communication probability.
+cellchat <- aggregateNet(cellchat)
+
+#visualize the aggregated cell-cell communication network
+groupSize <- as.numeric(table(cellchat@idents))
+par(mfrow = c(1,2), xpd=TRUE)
+netVisual_circle(cellchat@net$count, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Number of interactions")
+netVisual_circle(cellchat@net$weight, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Interaction weights/strength")
+
+saveRDS(cellchat, "./Sawyers_data/CellChat/Sawyers_CellChat_Inferred_network.rds")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Extract data from Seurat object (just PtRP)
+```{r Suerat Extraction, eval=FALSE}
+library(Seurat)
+#PtRP <- readRDS("./Sawyers_data/Sawyers_full_PtRP.rds")
+data.input <- GetAssayData(PtRP, assay = "RNA", slot = "scale.data") # normalized data matrix
+labels <- PtRP$fine_cell_type
+meta <- data.frame(group = labels, row.names = names(labels)) # create a dataframe of the cell labels
+```
+
+
+## Running CellChat Part 1
+```{r CellChat P1, eval=TRUE}
+library(CellChat)
+library(patchwork)
+options(stringsAsFactors = FALSE)
+
+#create cellchat object
+cellchat <- createCellChat(object = data.input, meta = meta, group.by = "group")
+
+#select DB (we are using human because of sawyers matrix is human for some reason)
+CellChatDB <- CellChatDB.human
+
+#Use entire DB
+CellChatDB.use <- CellChatDB # simply use the default CellChatDB
+
+# set the used database in the object
+cellchat@DB <- CellChatDB.use
+
+# subset the expression data of signaling genes for saving computation cost
+cellchat <- subsetData(cellchat) # This step is necessary even if using the whole database
+future::plan("multisession", workers = 4) # do parallel
+cellchat <- identifyOverExpressedGenes(cellchat)
+cellchat <- identifyOverExpressedInteractions(cellchat)
+
+# project gene expression data onto PPI (Optional)
+cellchat <- projectData(cellchat, PPI.human)
+
+saveRDS(cellchat, "./Sawyers_data/CellChat/Sawyers_PtRP_cellchat_part1.rds")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Extract data from Seurat object (just PtRP 12wk)
+```{r Suerat Extraction, eval=FALSE}
+library(Seurat)
+#PtRP <- readRDS("./Sawyers_data/Sawyers_full_PtRP.rds")
+PtRP_12wk <- subset(PtRP, tp == "12weeks")
+data.input <- GetAssayData(PtRP_12wk, assay = "RNA", slot = "scale.data") # normalized data matrix
+labels <- PtRP_12wk$fine_cell_type
+meta <- data.frame(group = labels, row.names = names(labels)) # create a dataframe of the cell labels
+```
+
+
+## Running CellChat Part 1
+```{r CellChat P1, eval=TRUE}
+library(CellChat)
+library(patchwork)
+options(stringsAsFactors = FALSE)
+
+#create cellchat object
+cellchat <- createCellChat(object = data.input, meta = meta, group.by = "group")
+
+#select DB (we are using human because of sawyers matrix is human for some reason)
+CellChatDB <- CellChatDB.human
+
+#Use entire DB
+CellChatDB.use <- CellChatDB # simply use the default CellChatDB
+
+# set the used database in the object
+cellchat@DB <- CellChatDB.use
+
+# subset the expression data of signaling genes for saving computation cost
+cellchat <- subsetData(cellchat) # This step is necessary even if using the whole database
+future::plan("multisession", workers = 4) # do parallel
+cellchat <- identifyOverExpressedGenes(cellchat)
+cellchat <- identifyOverExpressedInteractions(cellchat)
+
+# project gene expression data onto PPI (Optional)
+cellchat <- projectData(cellchat, PPI.human)
+
+saveRDS(cellchat, "./Sawyers_data/CellChat/Sawyers_PtRP_12wk_cellchat_part1.rds")
+```
+
+
+## Running CellChat Part 2
+```{r CellChat Part 2, eval=TRUE}
+
+#triMean is used for calculating the average gene expression per cell group. 
+cellchat@idents = droplevels(cellchat@idents, exclude = setdiff(levels(cellchat@idents),unique(cellchat@idents)))
+cellchat <- computeCommunProb(cellchat)
+
+
+# Filter out the cell-cell communication if there are only few number of cells in certain cell groups
+cellchat <- filterCommunication(cellchat, min.cells = 10)
+
+
+# data frame consisting of all the inferred cell-cell communications at the level of ligands/receptors
+df.net_ligand_receptor <- subsetCommunication(cellchat)
+write.csv(df.net_ligand_receptor, "./Sawyers_data/CellChat/Ligand_Receptor_PtRP_12wk_CellChat_df.csv")
+
+#compute the communication probability on signaling pathway level by summarizing the communication probabilities of all ligands-receptors interactions associated with each signaling pathway
+cellchat <- computeCommunProbPathway(cellchat)
+df.net_pathway <- subsetCommunication(cellchat, slot.name = "netP")
+write.csv(df.net_pathway, "./Sawyers_data/CellChat/Pathway_PtRP_12wk_CellChat_df.csv")
+
+#calculate the aggregated cell-cell communication network by counting the number of links or summarizing the communication probability.
+cellchat <- aggregateNet(cellchat)
+
+#visualize the aggregated cell-cell communication network
+groupSize <- as.numeric(table(cellchat@idents))
+par(mfrow = c(1,2), xpd=TRUE)
+netVisual_circle(cellchat@net$count, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Number of interactions")
+netVisual_circle(cellchat@net$weight, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Interaction weights/strength")
+
+saveRDS(cellchat, "./Sawyers_data/CellChat/Sawyers_CellChat_PtRP_12wk_Inferred_network.rds")
+```
+

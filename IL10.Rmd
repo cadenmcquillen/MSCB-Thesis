@@ -1,0 +1,390 @@
+---
+title: "Il10"
+author: "Caden McQuillen"
+date: '2023-02-28'
+output: 
+  html_document: 
+    toc: yes
+---
+## Libraries
+```{r}
+library(Seurat)
+
+```
+
+
+## Violin plot expression of Il10 downstream targets in Il10r pos and neg
+```{r}
+PRN_6wk_8wk = readRDS("./Seurat_Objects/Annotated_PRN_6wk_8wk.rds")
+PRN_6wk_8wk <- SetIdent(PRN_6wk_8wk, value = "cell.type3")
+#subset only macrophages
+macrophages <- subset(PRN_6wk_8wk, cell.type3 == "Macrophages")
+
+#Create vector of all cells expressing Il10ra and Il10rb
+Il10ra_cells <- WhichCells(macrophages, expression = Il10ra > 0)
+Il10rb_cells <- WhichCells(macrophages, expression = Il10rb > 0)
+Il10ra_Il10rb_cells <- intersect(Il10ra_cells, Il10rb_cells)
+print(length(Il10ra_Il10rb_cells))
+
+#Add meta data if cell expresses Il10 receptors
+macrophages$Il10_Expression<- ifelse(colnames(macrophages) %in% Il10ra_Il10rb_cells, "Il10_Pos", "Il10_Neg")
+macrophages <- SetIdent(macrophages, value = "Il10_Expression")
+il10_genes <- VlnPlot(object = macrophages, features = c("Stat1", "Stat3", "Tyk2", "Jak1", "Mapk14", "Hmox1"))
+
+#DEGs IL10r + for both vs not + for both
+macrophage_degs<-FindMarkers(macrophages, ident.1 = "Il10_Pos", ident.2 = "Il10_Neg")
+macrophage_degs_up <- subset(macrophage_degs, avg_log2FC >0)
+just_genes <- rownames(macrophage_degs_up)
+
+
+
+
+#Create vector of all cells NOT expressing Il10ra and Il10rb
+non_Il10ra_cells <- WhichCells(macrophages, expression = Il10ra == 0)
+non_Il10rb_cells <- WhichCells(macrophages, expression = Il10rb == 0)
+non_Il10ra_Il10rb_cells <- intersect(non_Il10ra_cells, non_Il10rb_cells)
+print(length(non_Il10ra_Il10rb_cells))
+
+#Add meta data if cell does NOT expresses Il10 receptors
+macrophages$Il10_Expression2 <- macrophages$Il10_Expression
+macrophages$Il10_Expression2[colnames(macrophages) %in% non_Il10ra_Il10rb_cells] <-  "No Il10r"
+macrophages <- SetIdent(macrophages, value = "Il10_Expression2")
+
+#DEGs IL10r + for both vs - for both
+macrophage_degs_2<-FindMarkers(macrophages, ident.1 = "Il10_Pos", ident.2 = "No Il10r")
+macrophage_degs_up_2 <- subset(macrophage_degs_2, avg_log2FC >0)
+just_genes <- rownames(macrophage_degs_up_2)
+
+
+
+#plot Il10r a/b expression by sample
+macrophages <- SetIdent(PRN_6wk_8wk, value = "data.sampleName")
+VlnPlot(object = macrophages, features = c("Il10ra", "Il10rb" ))
+#plot Il10 expression by sample
+PRN_6wk_8wk <- SetIdent(PRN_6wk_8wk, value = "data.sampleName")
+VlnPlot(object = PRN_6wk_8wk, features = c("Il10"))
+```
+
+
+
+
+
+## Recluster PRN macrophages
+```{r}
+
+
+#Normalize 
+macrophages  <- NormalizeData(macrophages , normalization.method = "LogNormalize", scale.factor = 10000)
+
+#Find Highly Variable Features
+macrophages  <- FindVariableFeatures(macrophages , selection.method = "vst", nfeatures = 2000)
+
+#Scale Data
+all.genes <- rownames(macrophages )
+macrophages  <- ScaleData(macrophages , features = all.genes)
+
+#PCA Dim Reduction
+macrophages  <- RunPCA(macrophages , features = VariableFeatures(object = macrophages))
+
+#K-Nearest Neighbors Graph
+macrophages  <- FindNeighbors(macrophages , dims = 1:10)
+
+#Cluster cells (Louvain algorithm)
+macrophages  <- FindClusters(macrophages , resolution = 0.1)
+
+#UMAP
+macrophages  <- RunUMAP(macrophages , dims = 1:10)
+
+#TSNE
+macrophages  <- RunTSNE(macrophages , dims = 1:10)
+
+DimPlot(macrophages , reduction = "umap")
+DimPlot(macrophages , reduction = "tsne")
+
+FeaturePlot(object = macrophages, features = 'Il10ra', reduction = "tsne")
+FeaturePlot(object = macrophages, features = 'Il10rb', reduction = "tsne")
+
+
+saveRDS(macrophages, "./Seurat_Objects/PRN_6wk_8wk_Macrophages.rds")
+```
+
+
+## M1 and M2 state Analysis
+```{r}
+# Jablonski KA, Amici SA, Webb LM, Ruiz-Rosado JdD, Popovich PG, et al. (2015) Novel Markers to Delineate Murine M1 and M2 Macrophages. PLOS ONE 10(12): e0145342.
+
+M1_markers_Jablonski <- c("Cd38", "Fpr2", "Gpr18", "Ccr2", "Cfb", "H2-Q6")
+M2_markers_Jablonski <- c("Egr2", "Myc", "Gpr18")
+
+#Li C, Menoret A, Farragher C, Ouyang Z, Bonin C, Holvoet P, Vella AT, Zhou B. Single cell transcriptomics based-MacSpectrum reveals novel macrophage activation signatures in diseases. JCI Insight. 2019 Apr 16;5(10):e126453. doi: 10.1172/jci.insight.126453.
+
+M1_markers_Li <- c("Cd86", "Nos2", "Tnf")
+M2_markers_Li  <- c("Chil3", "Arg1", "Retnla", "Mgl2")
+
+
+M1_markers_Classic <- c("H2-Ea", "Cd11c", "Cd86", "Stat1", "Cfb")
+M2_markers_Classic <- c("Cd206", "Cd204", "Cd163")
+
+
+
+#TAM M2 Markers
+TAM_M2_Markers <- c("Egf", "Arg1", "Hgf", "Bfgf", "Pdgf", "Crcr1", "Vegf", "Ccl7", "Ccl8", "Ccl9", "Ccl18")
+
+
+
+#Plot M1 and M2 marker expression
+FeaturePlot(object = macrophages, features = M1_markers_Jablonski, reduction = "tsne")
+FeaturePlot(object = macrophages, features = M2_markers_Jablonski, reduction = "tsne")
+
+FeaturePlot(object = macrophages, features = M1_markers_Classic, reduction = "tsne")
+FeaturePlot(object = macrophages, features = M2_markers_Classic, reduction = "tsne")
+
+FeaturePlot(object = macrophages, features = M1_markers_Li, reduction = "tsne")
+FeaturePlot(object = macrophages, features = M2_markers_Li, reduction = "tsne")
+
+
+FeaturePlot(object = macrophages, features = TAM_M2_Markers, reduction = "tsne")
+```
+
+
+## PR 8wk macrophages
+```{r}
+#PR_8wk <-readRDS("./Seurat_Objects/PR_8wk_QC_Clustered.rds")
+
+FeaturePlot(object = PR_8wk, features = 'Cd68', reduction = "umap")
+FeaturePlot(object = PR_8wk, features = 'C1qa', reduction = "umap")
+FeaturePlot(object = PR_8wk, features = 'Il10ra', reduction = "umap")
+FeaturePlot(object = PR_8wk, features = 'Il10rb', reduction = "umap")
+FeaturePlot(object = PR_8wk, features = 'Il10', reduction = "umap")
+
+
+#Create vector of all cells expressing Il10ra and Il10rb
+PR_macrophages <- WhichCells(PR_8wk, expression = Cd68 > 0)
+PR_macrophages2 <- WhichCells(PR_8wk, expression = C1qa > 0)
+PR_macrophages3 <- interaction(PR_macrophages, PR_macrophages2)
+
+Il10ra_cells_PR <- WhichCells(PR_8wk , expression = Il10ra > 0)
+Il10rb_cells_PR <- WhichCells(PR_8wk, expression = Il10rb > 0)
+Il10rba_Il10rb_cells_PR <- interaction(Il10ra_cells_PR, Il10rb_cells_PR)
+print(length(Il10ra_Il10rb_cells_PR))
+
+```
+
+## Subset PR macrophages
+```{r}
+PR <- readRDS("./Seurat_Objects/PR_8wk_QC_Clustered.rds")
+
+FeaturePlot(object = PR , features = "Cd68", reduction = "umap")
+FeaturePlot(object = PR , features = "Arg1", reduction = "umap")
+FeaturePlot(object = PR , features = "C1qa", reduction = "umap")
+
+DimPlot(PR, reduction = "umap")
+PR_macrophages <- subset(x = PR, seurat_clusters == "4")
+saveRDS(PR_macrophages, "./Seurat_Objects/PR_8wk_macrophages.rds")
+```
+
+
+## Recluster PR macrophages
+```{r}
+#Normalize 
+PR_macrophages  <- NormalizeData(PR_macrophages  , normalization.method = "LogNormalize", scale.factor = 10000)
+
+#Find Highly Variable Features
+PR_macrophages   <- FindVariableFeatures(PR_macrophages  , selection.method = "vst", nfeatures = 2000)
+
+#Scale Data
+all.genes <- rownames(PR_macrophages )
+PR_macrophages   <- ScaleData(PR_macrophages  , features = all.genes)
+
+#PCA Dim Reduction
+PR_macrophages   <- RunPCA(PR_macrophages  , features = VariableFeatures(object = PR_macrophages ))
+
+#K-Nearest Neighbors Graph
+PR_macrophages   <- FindNeighbors(PR_macrophages  , dims = 1:10)
+
+#Cluster cells (Louvain algorithm)
+PR_macrophages   <- FindClusters(PR_macrophages , resolution = 0.1)
+
+#UMAP
+PR_macrophages  <- RunUMAP(PR_macrophages , dims = 1:10)
+
+#TSNE
+PR_macrophages   <- RunTSNE(PR_macrophages  , dims = 1:10)
+
+DimPlot(PR_macrophages  , reduction = "umap")
+DimPlot(PR_macrophages  , reduction = "tsne")
+
+FeaturePlot(object = PR_macrophages , features = 'Il10ra', reduction = "tsne")
+FeaturePlot(object = PR_macrophages , features = 'Il10rb', reduction = "tsne")
+
+
+saveRDS(PR_macrophages , "./Seurat_Objects/PR_8wk_Clustered_macrophages.rds")
+```
+
+
+
+## PRN vs PR Macrophage composition 
+```{r}
+library(Seurat)
+library(tidyverse)
+#load seurat objects
+PRN_macropahges <- readRDS("./Seurat_Objects/PRN_6wk_8wk_Macrophages.rds")
+PR_macrophages <-readRDS("./Seurat_Objects/PR_8wk_Clustered_macrophages.rds")
+
+
+#Calculate LA macropahges percentage in PRN
+PRN_lipid <- WhichCells(PRN_macropahges, expression = C1qa > 0)
+PRN_lipid2 <- WhichCells(PRN_macropahges, expression = C1qb > 0)
+PRN_lipid3 <- WhichCells(PRN_macropahges, expression = C1qc > 0)
+PRN_lipid4 <- WhichCells(PRN_macropahges, expression = Apoe > 0)
+PRN_lipid5 <- WhichCells(PRN_macropahges, expression = Ctsb > 0)
+PRN_lipid6 <- WhichCells(PRN_macropahges, expression = Ctsl > 0)
+
+
+PRN_LA_macrophages <- Reduce(intersect, list(PRN_lipid,PRN_lipid2,PRN_lipid3, PRN_lipid4, PRN_lipid5, PRN_lipid6  ))
+
+PRN_LA_percentage <- length(PRN_LA_macrophages)/ 4420
+PRN_LA <- subset(PRN_macropahges, cells = PRN_LA_macrophages )
+
+#Calculate LA macropahges percentage in PR
+PR_lipid <- WhichCells(PR_macrophages, expression = C1qa > 0)
+PR_lipid2 <- WhichCells(PR_macrophages, expression = C1qb > 0)
+PR_lipid3 <- WhichCells(PR_macrophages, expression = C1qc > 0)
+PR_lipid4 <- WhichCells(PR_macrophages, expression = Apoe > 0)
+PR_lipid5 <- WhichCells(PR_macrophages, expression = Ctsb > 0)
+PR_lipid6 <- WhichCells(PR_macrophages, expression = Ctsl > 0)
+
+
+PR_LA_macrophages <- Reduce(intersect, list(PR_lipid,PR_lipid2,PR_lipid3, PR_lipid4, PR_lipid5, PR_lipid6  ))
+
+PR_LA_percentage <- length(PR_LA_macrophages)/ 1197
+PR_LA <- subset(PR_macrophages, cells = PR_LA_macrophages )
+
+
+
+
+#Calculate M2 macropahges percentage in PRN
+PRN_M2 <- WhichCells(PRN_macropahges , expression = Folr2 > 0)
+PRN_M2_2 <- WhichCells(PRN_macropahges , expression = Ccl8 > 0)
+PRN_M2_3 <- WhichCells(PRN_macropahges , expression = Arg1 > 0)
+PRN_M2_4 <- WhichCells(PRN_macropahges , expression = Chil3 > 0)
+PRN_M2_5 <- WhichCells(PRN_macropahges , expression = Mrc1 > 0)
+
+
+
+
+PRN_M2_Folr2 <- length(PRN_M2)/ 4420
+PRN_M2_Ccl8 <- length(PRN_M2_2)/ 4420
+PRN_M2_Arg1 <- length(PRN_M2_3)/ 4420
+PRN_M2_Chil3 <- length(PRN_M2_4) / 4420
+PRN_M2_Mrc1 <- length(PRN_M2_5) /4420
+
+#Calculate M2 macropahges percentage in PR
+PR_M2 <- WhichCells(PR_macrophages , expression = Folr2 > 0)
+PR_M2_2 <- WhichCells(PR_macrophages , expression = Ccl8 > 0)
+PR_M2_3 <- WhichCells(PR_macrophages, expression = Arg1 > 0)
+PR_M2_4 <- WhichCells(PR_macrophages , expression = Chil3 > 0)
+PR_M2_5 <- WhichCells(PR_macrophages, expression = Mrc1 > 0)
+
+PR_M2_Folr2 <- length(PR_M2)/  1197
+PR_M2_Ccl8 <- length(PR_M2_2)/  1197
+PR_M2_Arg1 <- length(PR_M2_3)/  1197
+PR_M2_Chil3 <- length(PR_M2_4) / 1197
+PR_M2_Mrc1 <- length(PR_M2_5) /1197
+
+
+
+#Calculate Il10r macropahges percentage in PRN
+
+PRN_il10ra <- WhichCells(PRN_macropahges, expression = Il10ra  >0)
+PRN_il10rb <- WhichCells(PRN_macropahges, expression = Il10rb  >0)
+PRN_both_il10r <- intersect(PRN_il10ra, PRN_il10rb)
+
+PRN_il10ra_percentage <- length(PRN_il10rb)/4420
+PRN_il10rb_percentage <- length(PRN_il10rb)/4420
+PRN_both_il10r_percentage <- length(PRN_both_il10r)/4420
+
+
+#Calculate Il10r macropahges percentage in PR
+
+PR_il10ra <- WhichCells(PR_macrophages, expression = Il10ra  >0)
+PR_il10rb <- WhichCells(PR_macrophages, expression = Il10rb  >0)
+PR_both_il10r <- intersect(PR_il10ra, PR_il10rb)
+
+PR_il10ra_percentage <- length(PR_il10rb)/1197
+PR_il10rb_percentage <- length(PR_il10rb)/1197
+PR_both_il10r_percentage <- length(PR_both_il10r)/1197
+
+
+# Z test for proportions (aka chi squared)
+
+
+il10ra_pval <- prop.test(x = c(length(PR_il10ra), length(PRN_il10ra)), n=c(1197, 4420), p = NULL, alternative = "two.sided",
+          correct = TRUE)
+il10rb_pval <- prop.test(x = c(length(PR_il10rb), length(PRN_il10rb)), n=c(1197, 4420), p = NULL, alternative = "two.sided",
+          correct = TRUE)
+
+il10r_both_pval <- prop.test(x = c(length(PR_il10ra), length(PRN_il10ra)), n=c(1197, 4420), p = NULL, alternative = "two.sided",
+          correct = TRUE)
+
+il10ra_pval <- prop.test(x = c(length(PR_both_il10r), length(PRN_both_il10r)), n=c(1197, 4420), p = NULL, alternative = "two.sided",
+          correct = TRUE)
+
+arg1_pval <- prop.test(x = c(length(PR_M2_3), length(PRN_M2_3)), n=c(1197, 4420), p = NULL, alternative = "two.sided",
+          correct = TRUE)
+
+folr2_pval <- prop.test(x = c(length(PR_M2), length(PRN_M2)), n=c(1197, 4420), p = NULL, alternative = "two.sided",
+          correct = TRUE)
+
+ccl8_pval <- prop.test(x = c(length(PR_M2_2), length(PRN_M2_2)), n=c(1197, 4420), p = NULL, alternative = "two.sided",
+          correct = TRUE)
+
+
+Chil3_pval <- prop.test(x = c(length(PR_M2_4), length(PRN_M2_4)), n=c(1197, 4420), p = NULL, alternative = "two.sided",
+          correct = TRUE)
+
+Mrc1_pval <- prop.test(x = c(length(PR_M2_5), length(PRN_M2_5)), n=c(1197, 4420), p = NULL, alternative = "two.sided",
+          correct = TRUE)
+```
+
+## Create bar graph df
+```{r}
+library(ggsignif)
+
+###M2 genes bargraph
+PRN_vector <-c(PRN_il10ra_percentage, PRN_il10rb_percentage, PRN_both_il10r_percentage, PRN_M2_Folr2, PRN_M2_Ccl8, PRN_M2_Arg1, PRN_M2_Chil3, PRN_M2_Mrc1)
+PR_vector <-c(PR_il10ra_percentage, PR_il10rb_percentage, PR_both_il10r_percentage, PR_M2_Folr2, PR_M2_Ccl8, PR_M2_Arg1, PR_M2_Chil3, PR_M2_Mrc1)
+plot_df <- matrix(nrow = 16, ncol = 3)
+plot_df[,1] <-c(round(PRN_vector, digits = 2), round(PR_vector, digits = 2))
+plot_df[,2 ]<-c(rep("PRN", 8), rep("PR", 8))
+plot_df[,3 ]<-c("Il10ra", "Il10rb", "Il10ra+b", "Folr2", "Ccl8", "Arg1","Chil3", "Mrc1", "Il10ra", "Il10rb", "Il10ra+b", "Folr2", "Ccl8", "Arg1", "Chil3", "Mrc1")
+
+
+plot_df <- as.data.frame(plot_df)
+colnames(plot_df)<-c("Percentage", "Genotype", "Gene")
+plot_df$Percentage <- as.numeric(plot_df$Percentage)
+
+
+ggplot(plot_df, aes(fill=Genotype, y=Percentage, x=factor(Gene, level=c('Arg1', 'Folr2', 'Chil3', 'Mrc1', 'Ccl8', 'Il10ra', 'Il10rb', 'Il10ra+b')))) + 
+    geom_bar(position="dodge", stat="identity") + xlab("Gene") +ylab("Proportion expressing") + ggtitle("Macrophages")+ theme(
+plot.title = element_text( size=14, face="bold", hjust = 0.5)) + geom_signif(y_position = c(0.32,0.17, 0.14, 0.41, 0.17, 0.43, 0.43, 0.17), xmin = c(0.6,1.6, 2.6, 3.6, 4.6, 5.6, 6.6, 7.6), 
+              xmax = c(1.3,2.3, 3.3, 4.3, 5.3, 6.3, 7.3, 8.3 ), annotation = c("***","***","***","***", "**","***","***", "***"),
+              tip_length = 0) 
+
+
+### lipid bargraph
+plot_df2 <- matrix(nrow = 12, ncol = 3)
+plot_df2[,1] <-c(round(PRN_LA_percentage, digits = 2), round(PR_LA_percentage, digits = 2))
+plot_df2[,2 ]<-c("PRN","PR")
+plot_df2[,3 ]<-c("Lipid-Associated", "Lipid-Associated")
+
+
+plot_df2 <- as.data.frame(plot_df2)
+colnames(plot_df2)<-c("Percentage", "Genotype", "Subtype")
+plot_df2$Percentage <- as.numeric(plot_df2$Percentage)
+
+ggplot(plot_df2, aes(fill=Genotype, y=Percentage, x=Subtype)) + 
+    geom_bar(position="dodge", stat="identity") + ylab("Percentage") + ggtitle("Macrophages")+ theme(
+plot.title = element_text( size=14, face="bold", hjust = 0.5)) 
+```
+

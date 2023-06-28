@@ -1,0 +1,34 @@
+---
+title: "IHC Quant"
+author: "Caden McQuillen"
+date: '2023-06-16'
+output: html_document
+---
+
+## read in data
+```{r}
+library(ggplot2)
+adeno1 <- read.table("./IHC_Images/test_slides/Converted_format/new_adeno1/stained_fractions.txt")
+NE1 <- read.table("./IHC_Images/test_slides/Converted_format/new_NE1/stained_fractions.txt")
+NE2 <- read.table("./IHC_Images/test_slides/Converted_format/new_NE2/stained_fractions.txt")
+NE3 <- read.table("./IHC_Images/test_slides/Converted_format/new_NE3/stained_fractions.txt")
+
+plot_df <- data.frame(c(adeno1$V2, NE1$V2, NE2$V2, NE3$V2), c(rep("Adeno1", 10),rep("NE1", 10), rep("NE2", 10), rep("NE3", 10)), c(rep("Adeno", 10),rep("NE", 30)))
+colnames(plot_df) <- c("Proportion", "Sample", "Class")
+
+ggplot(plot_df, aes(x=Sample, y=Proportion, color=Class)) +
+  geom_boxplot() + geom_jitter(shape=16, position=position_jitter(0.2)) + ggtitle("F480 IHC Quantification")
+```
+
+## Average NE vs Adeno
+```{r}
+NE_avg <- mean(c(NE1$V2, NE2$V2, NE3$V2))
+Adeno_avg <- mean(adeno1$V2)
+
+plot_df2 <- data.frame(c(NE_avg,Adeno_avg), c("NE", "Adeno"))
+colnames(plot_df2) <- c( "Avg Proportion", "Class")
+
+ggplot(plot_df2, aes(x=Class, y=`Avg Proportion`, fill=Class)) +
+  geom_bar(stat = "identity")
+
+```

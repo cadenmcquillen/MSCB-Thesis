@@ -1,0 +1,150 @@
+---
+title: "SCENIC_genes"
+author: "Caden McQuillen"
+date: '2023-05-19'
+output: html_document
+---
+
+
+#Check expression of Pou2f3 regulon genes
+
+```{r}
+library(Seurat)
+library(ggpubr)
+VlnPlot(PRN_6wk_8wk, "Ccnd1", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Rest", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Ehf", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Elf3", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Stox2", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Foxp2", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Hoxa4", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Zfp428", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Zfhx4", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Mta2", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Dab1", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Mef2a", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Mef2b", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Mef2c", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Mef2d", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Nlk", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Fezf1", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Sema6c", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Pvalb", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Lyn", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Bcl2l14", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Zmat4", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Prlr", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Rcan2", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Atf7ip", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Mpped2", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Epha7", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Myt1l", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Egln3", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Tmem132e", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Hoxa5", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Prkcz", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Ebf1", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Gfi1b", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Hoxb13", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Olig1", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Phf6", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Tox3", group.by = "cell.type3")
+
+
+# Canidates
+VlnPlot(PRN_6wk_8wk, "Foxa1", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Uhrf1", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Six2", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Hoxb13", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Il10", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Hoxa5", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Rest", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Ehf", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Sox4", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Ascl2", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Runx1", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Chd1", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Myt1l", group.by = "cell.type3")
+VlnPlot(PRN_6wk_8wk, "Ruvbl1", group.by = "cell.type3")
+
+my_comparisons <- list( c("Pou2f3_Neuroendocrine", "Luminal Epithelium"), c("Neuroendocrine", "Luminal Epithelium"), c("Neuroendocrine", "Pou2f3_Neuroendocrine"))
+
+VlnPlot(PRN_6wk_8wk, "Chd6", group.by = "cell.type3",  pt.size=0) + stat_compare_means(comparisons = my_comparisons) +
+  ylim(-0.5, 5)
+
+VlnPlot(PRN_6wk_8wk, "Ctcf", group.by = "cell.type3",  pt.size=0) + stat_compare_means(comparisons = my_comparisons) +ylim(-0.5, 5)
+
+## Ctcf DEG in both datasets
+
+
+
+
+Pou2f3_only <- subset(PRN_6wk_8wk, cell.type3 == "Pou2f3_Neuroendocrine")
+FeatureScatter(Pou2f3_only,feature1 =  "Pou2f3", feature2 = "Ehf")
+
+
+sawyers <- readRDS("./Sawyers_data/Sawyers_full_PtRP.rds")
+
+VlnPlot(sawyers, "EHF", group.by = "fine_cell_type", slot = "scale.data")
+VlnPlot(sawyers, "FOXA1", group.by = "fine_cell_type", slot = "scale.data")
+VlnPlot(sawyers, "REST", group.by = "fine_cell_type", slot = "scale.data")
+VlnPlot(sawyers, "IL10", group.by = "fine_cell_type", slot = "scale.data")
+VlnPlot(sawyers, "SIX2", group.by = "fine_cell_type", slot = "scale.data")
+VlnPlot(sawyers, "UHRF1", group.by = "fine_cell_type", slot = "scale.data")
+VlnPlot(sawyers, "SOX4", group.by = "fine_cell_type", slot = "scale.data")
+VlnPlot(sawyers, "ASCL2", group.by = "fine_cell_type", slot = "scale.data")
+
+
+VlnPlot(sawyers, "CHD6", group.by = "fine_cell_type", slot = "scale.data") 
+
+
+tfs <- read.table("./SCENIC/mm_mgi_tfs.txt")
+tf_overlap <-intersect(pou2f3,tolower(tfs$V1))
+
+
+NEPC_genes <- read_excel("./NEPC_meta_genes.xlsx")
+new_NEPC <- as.vector(NEPC)
+new_NEPC<-unlist(new_NEPC)
+new_NEPC<-unique(new_NEPC)
+new_NEPC<-tolower(new_NEPC)
+pou2f3 <- tolower(pou2f3)
+overlap <- intersect(pou2f3,new_NEPC)
+
+
+pou2f3.de.markers <- FindMarkers(PRN_6wk_8wk, ident.1 = "Pou2f3_Neuroendocrine")
+pou2f3.de <- subset(pou2f3.de.markers, avg_log2FC > 0)
+pou2f3.de.genes <- tolower(rownames(pou2f3.de ))
+
+de.overlap <- intersect(pou2f3, pou2f3.de.genes)
+
+
+intersect(de.overlap,tf_overlap)
+
+
+pou2f3.de.sawyers<- FindMarkers(sawyers, ident.1 = "NEPC-P")
+pou2f3.de.sawyers <- subset(pou2f3.de.sawyers, avg_log2FC > 0)
+pou2f3.de.sawyers.genes <- tolower(rownames(pou2f3.de.sawyers))
+
+deg_overlap <- intersect(pou2f3.de.genes, pou2f3.de.sawyers.genes)
+
+de.double.overlap <- intersect(pou2f3, deg_overlap)
+intersect(de.double.overlap,tf_overlap)
+
+
+save(file = "./SCENIC/Pou2f3_degs.RData", pou2f3.de.sawyers, pou2f3.de)
+
+Pou2f3_only <- subset(PRN_6wk_8wk, cell.type3 == "Pou2f3_Neuroendocrine")
+NE_only <- subset(PRN_6wk_8wk, cell.type3 == "Neuroendocrine")
+
+
+FeatureScatter(PRN_6wk_8wk,feature1 =  "Pou2f3", feature2 = "Chd6", plot.cor = FALSE)+stat_cor(aes(color = PRN_6wk_8wk$cell.type3), method="spearman", label.x = 2)
+
+FeatureScatter(PRN_6wk_8wk,feature1 =  "E2f1", feature2 = "Chd6", plot.cor = FALSE)+stat_cor(aes(color = PRN_6wk_8wk$cell.type3), method="spearman", label.x = 2)
+
+FeatureScatter(PRN_6wk_8wk,feature1 =  "Il10", feature2 = 'Chd6', plot.cor = FALSE)+stat_cor(aes(color = PRN_6wk_8wk$cell.type3), method="spearman", label.x = 2)
+
+
+FeatureScatter(PRN_6wk_8wk,feature1 =  "Pou2f3", feature2 = "Chd6", plot.cor = FALSE)+stat_cor(aes(color = PRN_6wk_8wk$cell.type3), method="spearman", label.x = 2)
+
+```
+

@@ -1,0 +1,765 @@
+---
+title: "ATAC_Seurat"
+author: "Caden McQuillen"
+date: '2023-03-20'
+output: 
+  html_document: 
+    toc: yes
+---
+
+## Create Seurat atac object
+```{r}
+library(Signac)
+library(Seurat)
+library(GenomeInfoDb)
+library(EnsDb.Mmusculus.v79)
+library(ggplot2)
+library(patchwork)
+
+
+
+counts <- Read10X_h5(filename = "/Users/Caden/Desktop/Pou2f3_Data/scATAC/PRN_6wk_8wk/raw_data/filtered_peak_bc_matrix.h5")
+metadata <- read.csv(
+  file = "./scATAC/PRN_6wk_8wk/raw_data/singlecell.csv",
+  header = TRUE,
+  row.names = 1
+)
+
+fragments_obj <- CreateFragmentObject(
+  path = './scATAC/PRN_6wk_8wk/raw_data/fragments.tsv.gz',
+  cells = colnames(counts), 
+  validate.fragments = F, 
+  max.lines = NULL, 
+  tolerance = 0
+)
+
+chrom_assay <- CreateChromatinAssay(
+  counts = counts,
+  sep = c(":", "-"),
+  genome = 'mm10',
+  fragments = fragments_obj,
+  min.cells = 10,
+  min.features = 200
+
+)
+
+ PRN <- CreateSeuratObject(
+  counts = chrom_assay,
+  assay = "peaks",
+  meta.data = metadata
+)
+
+saveRDS(PRN, "./scATAC/PRN_6wk_8wk/PRN_6wk_8wk_ATAC_seurat.rds")
+```
+
+
+## Granges
+```{r}
+#PRN <- readRDS("./scATAC/PRN_6wk_8wk/PRN_6wk_8wk_ATAC_seurat.rds")
+granges(PRN)
+```
+
+## Annotation info
+```{r}
+# extract gene annotations from EnsDb
+annotations <- GetGRangesFromEnsDb(ensdb = EnsDb.Mmusculus.v79) ##mm10
+
+# change to UCSC style since the data was mapped to mm10
+seqlevelsStyle(annotations) <- "UCSC"
+
+#annotations <- read.delim("/Users/Caden/Desktop/Pou2f3_Data/scATAC/PRN_6wk_8wk/raw_data/peak_annotation.tsv")
+#annotations <- granges(annotations)
+
+# add the gene information to the object
+Annotation(PRN) <- annotations
+```
+
+## QC (skipping for now since not confident)
+```{r}
+
+```
+
+## Normalization and linear dimension reduction
+```{r}
+PRN <- RunTFIDF(PRN)
+PRN <- FindTopFeatures(PRN, min.cutoff = 'q0')
+PRN <- RunSVD(PRN)
+```
+
+## Non-linear dimension reduction and clustering
+```{r}
+PRN <- RunUMAP(object = PRN, reduction = 'lsi', dims = 2:30)
+PRN <- RunTSNE(object = PRN, reduction = 'lsi', dims = 2:30)
+PRN <- FindNeighbors(object = PRN, reduction = 'lsi', dims = 2:30)
+PRN <- FindClusters(object = PRN, verbose = FALSE, algorithm = 3)
+DimPlot(object = PRN, label = FALSE) 
+```
+
+## Infer gene expression
+```{r}
+
+gene.activities <- GeneActivity(PRN)
+# add the gene activity matrix to the Seurat object as a new assay and normalize it
+PRN[['RNA']] <- CreateAssayObject(counts = gene.activities)
+PRN<- NormalizeData(
+  object = PRN,
+  assay = 'RNA',
+  normalization.method = 'LogNormalize',
+  scale.factor = median(PRN$nCount_RNA)
+)
+saveRDS(PRN, "./scATAC/PRN_6wk_8wk/PRN_6wk_8wk_ATAC_seurat.rds")
+```
+
+
+## Integrate with scRNA seq
+```{r}
+# Load the pre-processed scRNA-seq data 
+PRN_6wk_8wk<- readRDS("./Seurat_Objects/Annotated_PRN_6wk_8wk.rds")
+ 
+#Set assay as RNA for finding anchors
+DefaultAssay(PRN_6wk_8wk) <- "RNA"
+DefaultAssay(PRN) <- "RNA"
+transfer.anchors <- FindTransferAnchors(
+  reference = PRN_6wk_8wk,
+  query = PRN,
+  reduction = 'cca'
+)
+
+predicted.labels <- TransferData(
+  anchorset = transfer.anchors,
+  refdata = PRN_6wk_8wk$cell.type3,
+  weight.reduction = PRN[['lsi']],
+  dims = 2:30
+)
+
+PRN <- AddMetaData(object = PRN, metadata = predicted.labels)
+
+#plot both
+plot1 <- DimPlot(
+  object = PRN_6wk_8wk,
+  group.by = 'cell.type3',
+  reduction = "tsne",
+  label = FALSE,
+  repel = TRUE)  + ggtitle('scRNA-seq')
+
+plot2 <- DimPlot(
+  object = PRN,
+  group.by = 'predicted.id',
+   reduction = "tsne",
+  label = FALSE,
+  repel = TRUE) + ggtitle('scATAC-seq')
+
+plot1 + plot2
+
+saveRDS(PRN, "./scATAC/PRN_6wk_8wk/PRN_6wk_8wk_ATAC_seurat.rds")
+```
+## add motif info
+```{r}
+library(JASPAR2020)
+library(TFBSTools)
+library(BSgenome.Mmusculus.UCSC.mm10)
+# Get a list of motif position frequency matrices from the JASPAR database
+pfm <- getMatrixSet(
+  x = JASPAR2020,
+  opts = list(collection = "CORE", tax_group = 'vertebrates', all_versions = FALSE)
+)
+
+# add motif information
+PRN <- AddMotifs(
+  object = PRN,
+  genome = BSgenome.Mmusculus.UCSC.mm10,
+  pfm = pfm
+)
+```
+
+
+## Motif activity
+```{r}
+PRN <- RunChromVAR(
+  object = PRN,
+  genome = BSgenome.Mmusculus.UCSC.mm10
+)
+
+DefaultAssay(PRN) <- 'chromvar'
+saveRDS(PRN, "./scATAC/PRN_6wk_8wk/PRN_6wk_8wk_ATAC_seurat.rds")
+```
+
+## Differntially accessible motifs per cluster by overrepersented motif
+```{r}
+PRN<- SetIdent(PRN, value = "predicted.id")
+da_peaks <- FindAllMarkers(
+  object = PRN,
+  only.pos = TRUE,
+  test.use = 'LR',
+  min.pct = 0.05,
+  latent.vars = 'nCount_peaks'
+)
+
+# get top differential accessible peaks
+top.da.peak <- rownames(da_peaks[da_peaks$p_val < 0.005, ])
+
+enriched.motifs <- FindMotifs(
+  object = PRN,
+  features = top.da.peak
+)
+```
+
+## Sox4 and Sox21 peaks
+```{r}
+library(RColorBrewer)
+library(scales)
+DefaultAssay(PRN) <- 'chromvar'
+PRN <- SetIdent(PRN, value = "predicted.id")
+
+
+#Pou2f3
+p1 <- DimPlot(PRN, label = FALSE, pt.size = 0.1, reduction = "tsne") 
+p2 <- FeaturePlot(
+  object = PRN,
+  features = "MA0627.2",
+  pt.size = 0.1,
+  min.cutoff = 'q10',
+  max.cutoff = 'q90',
+  reduction = "tsne")+ scale_color_gradientn(colors = rev(brewer.pal(11, "RdBu")))
+p1 + p2
+
+#Ascl1
+p3 <- FeaturePlot(
+  object = PRN,
+  features = "MA1631.1",
+  pt.size = 0.1,
+  min.cutoff = 'q10',
+  max.cutoff = 'q90',
+  reduction = "tsne")+ scale_color_gradientn(colors = rev(brewer.pal(11, "RdBu")))
+p1 + p3
+
+#Insm1
+p4 <- FeaturePlot(
+  object = PRN,
+  features = "MA0155.1",
+  pt.size = 0.1,
+   min.cutoff = 'q10',
+  reduction = "tsne")+ scale_color_gradientn(colors = rev(brewer.pal(11, "RdBu")))
+p1 + p4
+
+
+
+#Sox4
+plot1 <- VlnPlot(
+  object = PRN,
+  features = "MA0867.2",
+  idents = c("Pou2f3_Neuroendocrine", "Neuroendocrine"),
+  pt.size = 0.1
+)
+plot2 <- FeaturePlot(
+  object = PRN,
+  features = "MA0867.2",
+  pt.size = 0.1, 
+  min.cutoff = 'q10',
+  reduction = "tsne") + scale_color_gradientn(colors = rev(brewer.pal(11, "RdBu")), limits = c(0,3), oob = scales::squish)
+
+
+plot1 | plot2
+
+#Sox21
+plot1 <- VlnPlot(
+  object = PRN,
+  features = "MA0866.1",
+   idents = c("Pou2f3_Neuroendocrine", "Neuroendocrine"),
+  pt.size = 0.1,
+)
+plot2 <- FeaturePlot(
+  object = PRN,
+  features = "MA0866.1",
+  pt.size = 0.1, 
+  min.cutoff = 'q10',
+  reduction = "tsne") + scale_color_gradientn(colors = rev(brewer.pal(11, "RdBu")), limits = c(0,2.5), oob = scales::squish)
+
+plot1 | plot2
+
+
+
+```
+
+## Sox4 peak locations
+```{r}
+library(motifmatchr)
+pfm_Sox4 <- subset(pfm, names(pfm) == "MA0867.2")
+Sox4_motif_peaks <- matchMotifs(pfm_Sox4, PRN@assays$peaks@ranges, 
+                        genome = BSgenome.Mmusculus.UCSC.mm10)
+```
+### add annotations to Sox4 peak locations
+```{r}
+library(org.Mm.eg.db)
+library(TxDb.Mmusculus.UCSC.mm10.knownGene)
+library(csaw)
+
+
+output <- detailRanges(Sox4_motif_peaks, orgdb=org.Mm.eg.db,
+    txdb=TxDb.Mmusculus.UCSC.mm10.knownGene) 
+head(output$overlap)
+head(output$right)
+head(output$left)
+genes <- output$overlap
+
+peaks_for_plot <- vector()
+genes[grep("Sox21", genes)]
+genes[grep("Ascl1", genes)]
+genes[grep("Insm1", genes)]
+genes[grep("Chga", genes)]
+genes[grep("Chgb", genes)]
+
+
+peaks_for_plot <- c(grep("Sox21", genes), grep("Ascl1", genes), grep("Insm1", genes), grep("Chga", genes), grep("Chgb", genes))
+
+```
+### Plot Sox4 peaks
+```{r}
+peak_coords <- vector(length = length(peaks_for_plot))
+for(i in 1:length(peaks_for_plot)){
+  currentIndex <- peaks_for_plot[i]
+  peak_coords[i] <- paste(seqnames(Sox4_motif_peaks)[currentIndex],ranges(Sox4_motif_peaks)[currentIndex], sep = "-")
+}
+
+CoveragePlot(
+  object = PRN,
+  region = peak_coords[1],
+  extend.upstream = 40000,
+  extend.downstream = 20000
+)
+
+```
+
+## Sox21 peak locations
+```{r}
+library(motifmatchr)
+pfm_Sox21 <- subset(pfm, names(pfm) == "MA0866.1")
+Sox21_motif_peaks <- matchMotifs(pfm_Sox21, PRN@assays$peaks@ranges, 
+                        genome = BSgenome.Mmusculus.UCSC.mm10)
+```
+### add annotations to Sox21 peak locations
+```{r}
+library(org.Mm.eg.db)
+library(TxDb.Mmusculus.UCSC.mm10.knownGene)
+library(csaw)
+
+
+output <- detailRanges(Sox21_motif_peaks, orgdb=org.Mm.eg.db,
+    txdb=TxDb.Mmusculus.UCSC.mm10.knownGene) 
+head(output$overlap)
+head(output$right)
+head(output$left)
+genes <- output$overlap
+
+peaks_for_plot <- vector()
+genes[grep("Ascl1", genes)]
+genes[grep("Insm1", genes)]
+genes[grep("Chga", genes)]
+genes[grep("Chgb", genes)]
+
+peaks_for_plot <- c(grep("Ascl1", genes), grep("Insm1", genes), grep("Chga", genes), grep("Chgb", genes))
+
+```
+
+### Plot Sox21 peaks
+```{r}
+peak_coords <- vector(length = length(peaks_for_plot))
+for(i in 1:length(peaks_for_plot)){
+  currentIndex <- peaks_for_plot[i]
+  peak_coords[i] <- paste(seqnames(Sox21_motif_peaks)[currentIndex],ranges(Sox21_motif_peaks)[currentIndex], sep = "-")
+}
+
+
+
+DefaultAssay(PRN) <- "peaks"
+PRN <- SetIdent(PRN, value = "predicted.id")
+
+CoveragePlot(
+  object = PRN,
+  region = peak_coords[1],
+  extend.upstream = 40000,
+  extend.downstream = 20000
+)
+
+CoveragePlot(
+  object = PRN,
+  region = peak_coords[2],
+  extend.upstream = 40000,
+  extend.downstream = 20000
+)
+
+CoveragePlot(
+  object = PRN,
+  region = peak_coords[3],
+  extend.upstream = 40000,
+  extend.downstream = 20000
+)
+
+CoveragePlot(
+  object = PRN,
+  region = peak_coords[4],
+  extend.upstream = 40000,
+  extend.downstream = 20000
+)
+
+CoveragePlot(
+  object = PRN,
+  region = peak_coords[5],
+  extend.upstream = 40000,
+  extend.downstream = 20000
+)
+
+CoveragePlot(
+  object = PRN,
+  region = peak_coords[6],
+  extend.upstream = 40000,
+  extend.downstream = 20000
+)
+
+```
+
+## Pou2f3 peak locations
+```{r}
+library(motifmatchr)
+pfm_Pou2f3 <- subset(pfm, names(pfm) == "MA0627.2")
+Pou2f3_motif_peaks <- matchMotifs(pfm_Pou2f3, PRN@assays$peaks@ranges, 
+                        genome = BSgenome.Mmusculus.UCSC.mm10)
+```
+### add annotations to Pou2f3 peak locations
+```{r}
+library(org.Mm.eg.db)
+library(TxDb.Mmusculus.UCSC.mm10.knownGene)
+library(csaw)
+
+
+output <- detailRanges(Pou2f3_motif_peaks, orgdb=org.Mm.eg.db,
+    txdb=TxDb.Mmusculus.UCSC.mm10.knownGene) 
+head(output$overlap)
+head(output$right)
+head(output$left)
+genes <- output$overlap
+
+peaks_for_plot <- vector()
+genes[grep("Sox21", genes)]
+genes[grep("Sox4", genes)]
+genes[grep("Ctcf", genes)]
+genes[grep("Ascl1", genes)]
+genes[grep("Insm1", genes)]
+genes[grep("Chga", genes)]
+genes[grep("Chgb", genes)]
+
+
+peaks_for_plot <- c(grep("Sox21", genes), grep("Sox4", genes), grep("Ctcf", genes),grep("Ascl1", genes), grep("Insm1", genes), grep("Chga", genes), grep("Chgb", genes))
+
+```
+
+
+## Diffentially acceisble peaks by motif activity score
+```{r}
+differential.activity <- FindAllMarkers(
+  object = PRN,
+  only.pos = TRUE,
+  mean.fxn = rowMeans,
+  fc.name = "avg_diff"
+)
+```
+
+## Pou2f3+ vs Pou2f3- DA motifs
+```{r}
+PRN<- SetIdent(PRN, value = "predicted.id")
+da_peaks_pou2f3_vs_neuroendocrine <- FindMarkers(
+  object = PRN,
+  ident.1 = "Pou2f3_Neuroendocrine",
+  ident.2 = "Neuroendocrine",
+  only.pos = TRUE,
+  test.use = 'LR',
+  min.pct = 0.05,
+  latent.vars = 'nCount_peaks'
+)
+
+# get top differential accessible peaks
+top.da.peak_pou2f3_vs_neuroendocrine <- rownames(da_peaks_pou2f3_vs_neuroendocrine[da_peaks_pou2f3_vs_neuroendocrine$p_val < 0.005, ])
+
+
+#Does not do right thing
+pou2f3 <- WhichCells(PRN, expression = predicted.id == "Pou2f3_Neuroendocrine")
+neuroendo <-WhichCells(PRN, expression = predicted.id == "Neuroendocrine")
+neuroendo_union <- union(pou2f3,neuroendo)
+PRN$neuroendocrine <- ifelse(names(PRN$orig.ident) %in% neuroendo_union, "Neuroendocrine", "Other")
+
+
+conserved_DA_pou2f3 <- FindConservedMarkers(
+  object = PRN,
+  ident.1 = "Pou2f3_Neuroendocrine",
+  grouping.var = "neuroendocrine",
+  assay = "chromvar",
+  slot = "data",
+  
+)
+
+gene_name <- vector(length = length(rownames(da_peaks_pou2f3_vs_neuroendocrine)))
+for(i in 1:length(rownames(da_peaks_pou2f3_vs_neuroendocrine))){
+  gene_name[i] <- subset(pfm,names(pfm@listData) == rownames(da_peaks_pou2f3_vs_neuroendocrine)[i])[[1]]@name
+}
+da_peaks_pou2f3_vs_neuroendocrine$gene_name <- gene_name
+
+
+gene_name <- vector(length = length(rownames(da_peaks)))
+for(i in 1:length(rownames(da_peaks))){
+  gene_name[i] <- subset(pfm,names(pfm@listData) == rownames(da_peaks)[i])[[1]]@name
+}
+da_peaks$gene_name <- gene_name
+
+
+gene_name <- vector(length = length(rownames(conserved_DA_pou2f3)))
+for(i in 1:length(rownames(conserved_DA_pou2f3))){
+  gene_name[i] <- subset(pfm,names(pfm@listData) == rownames(conserved_DA_pou2f3)[i])[[1]]@name
+}
+conserved_DA_pou2f3$gene_name <- gene_name
+
+```
+
+## Get highly "expressed" motifs in Pou2f3 and Neuroendocrine
+```{r}
+Pou2f3_only <- subset(PRN, predicted.id == "Pou2f3_Neuroendocrine")
+
+Pou2f3_chromVarMatrix <- Pou2f3_only@assays$chromvar@data
+Pou2f3_motif_sums <- sort(rowSums(Pou2f3_chromVarMatrix), decreasing = TRUE)
+Pou2f3_motif_sums_top20 <- Pou2f3_motif_sums[seq(1:30)]
+
+
+Neuroendocrine_only <- subset(PRN, predicted.id == "Neuroendocrine")
+
+Neuroendocrine_chromVarMatrix <- Neuroendocrine_only@assays$chromvar@data
+Neuroendocrine_motif_sums <- sort(rowSums(Neuroendocrine_chromVarMatrix), decreasing = TRUE)
+Neuroendocrine_motif_sums_top20 <- Neuroendocrine_motif_sums[seq(1:30)]
+
+overlap <- intersect(names(Pou2f3_motif_sums_top20), names(Neuroendocrine_motif_sums_top20))
+
+```
+
+
+## Motifmatchr for specific peaks
+```{r}
+Sox21_peak_coords <- GenomicRanges::GRanges(seqnames = c("chr14"),
+                ranges = IRanges::IRanges(start = c(118234356),
+                                          width = 3319))
+
+
+Sox21_peak_motifs <- matchMotifs(pfm, Sox21_peak_coords,
+                         genome = "BSgenome.Mmusculus.UCSC.mm10",
+                         out = "scores")
+
+top_motifs_sox21_coords <- t(as.matrix(motifScores(Sox21_peak_motifs)))
+top_motifs_sox21_coords <- as.data.frame(top_motifs_sox21_coords)
+#top_motifs_sox21_coords <- sort(top_motifs_sox21_coords)
+
+gene_name <- vector(length = length(rownames(top_motifs_sox21_coords)))
+for(i in 1:length(rownames(top_motifs_sox21_coords))){
+  gene_name[i] <- subset(pfm,names(pfm@listData) == rownames(top_motifs_sox21_coords)[i])[[1]]@name
+}
+top_motifs_sox21_coords$gene_name <- gene_name
+
+
+
+
+Ascl1_peak_coord1 <- GenomicRanges::GRanges(seqnames = c("chr10"),
+                ranges = IRanges::IRanges(start = c(87492432),
+                                          width = 1621))
+
+
+Ascl1_peak1_motifs <- matchMotifs(pfm, Ascl1_peak_coord1,
+                         genome = "BSgenome.Mmusculus.UCSC.mm10",
+                         out = "scores")
+
+top_motifs_Ascl1_coord1 <- t(as.matrix(motifScores(Ascl1_peak1_motifs)))
+top_motifs_Ascl1_coord1 <- as.data.frame(top_motifs_Ascl1_coord1)
+#top_motifs_sox21_coords <- sort(top_motifs_sox21_coords)
+
+gene_name <- vector(length = length(rownames(top_motifs_Ascl1_coord1)))
+for(i in 1:length(rownames(top_motifs_Ascl1_coord1))){
+  gene_name[i] <- subset(pfm,names(pfm@listData) == rownames(top_motifs_Ascl1_coord1)[i])[[1]]@name
+}
+top_motifs_Ascl1_coord1$gene_name <- gene_name
+
+
+Ascl1_peak_coord2 <- GenomicRanges::GRanges(seqnames = c("chr10"),
+                ranges = IRanges::IRanges(start = c(87494561),
+                                          width = 552))
+
+
+Ascl1_peak2_motifs <- matchMotifs(pfm, Ascl1_peak_coord2,
+                         genome = "BSgenome.Mmusculus.UCSC.mm10",
+                         out = "scores")
+
+top_motifs_Ascl1_coord2 <- t(as.matrix(motifScores(Ascl1_peak2_motifs)))
+top_motifs_Ascl1_coord2 <- as.data.frame(top_motifs_Ascl1_coord2)
+#top_motifs_sox21_coords <- sort(top_motifs_sox21_coords)
+
+gene_name <- vector(length = length(rownames(top_motifs_Ascl1_coord2)))
+for(i in 1:length(rownames(top_motifs_Ascl1_coord2))){
+  gene_name[i] <- subset(pfm,names(pfm@listData) == rownames(top_motifs_Ascl1_coord2)[i])[[1]]@name
+}
+top_motifs_Ascl1_coord2$gene_name <- gene_name
+
+
+
+
+
+##################################################
+
+
+
+Insm1_peak_coord1 <- GenomicRanges::GRanges(seqnames = c("chr2"),
+                ranges = IRanges::IRanges(start = c(146217111),
+                                          width = 2449))
+
+
+Insm1_peak1_motifs <- matchMotifs(pfm, Insm1_peak_coord1,
+                         genome = "BSgenome.Mmusculus.UCSC.mm10",
+                         out = "scores")
+
+top_motifs_Insm1_coord1 <- t(as.matrix(motifScores(Insm1_peak1_motifs)))
+top_motifs_Insm1_coord1 <- as.data.frame(top_motifs_Insm1_coord1)
+#top_motifs_sox21_coords <- sort(top_motifs_sox21_coords)
+
+gene_name <- vector(length = length(rownames(top_motifs_Insm1_coord1)))
+for(i in 1:length(rownames(top_motifs_Insm1_coord1))){
+  gene_name[i] <- subset(pfm,names(pfm@listData) == rownames(top_motifs_Insm1_coord1)[i])[[1]]@name
+}
+top_motifs_Insm1_coord1$gene_name <- gene_name
+
+
+Insm1_peak_coord2 <- GenomicRanges::GRanges(seqnames = c("chr2"),
+                ranges = IRanges::IRanges(start = c(146220585),
+                                          width = 3397))
+
+
+Insm1_peak2_motifs <- matchMotifs(pfm, Insm1_peak_coord2,
+                         genome = "BSgenome.Mmusculus.UCSC.mm10",
+                         out = "scores")
+
+top_motifs_Insm1_coord2 <- t(as.matrix(motifScores(Insm1_peak2_motifs)))
+top_motifs_Insm1_coord2 <- as.data.frame(top_motifs_Insm1_coord2)
+#top_motifs_sox21_coords <- sort(top_motifs_sox21_coords)
+
+gene_name <- vector(length = length(rownames(top_motifs_Insm1_coord2)))
+for(i in 1:length(rownames(top_motifs_Insm1_coord2))){
+  gene_name[i] <- subset(pfm,names(pfm@listData) == rownames(top_motifs_Insm1_coord2)[i])[[1]]@name
+}
+top_motifs_Insm1_coord2$gene_name <- gene_name
+
+#########################################
+
+
+Chga_peak_coord1 <- GenomicRanges::GRanges(seqnames = c("chr12"),
+                ranges = IRanges::IRanges(start = c(102553943),
+                                          width = 1687))
+
+Chga_peak1_motifs <- matchMotifs(pfm, Chga_peak_coord1,
+                         genome = "BSgenome.Mmusculus.UCSC.mm10",
+                         out = "scores")
+
+top_motifs_Chga_coord1 <- t(as.matrix(motifScores(Chga_peak1_motifs)))
+top_motifs_Chga_coord1 <- as.data.frame(top_motifs_Chga_coord1)
+#top_motifs_sox21_coords <- sort(top_motifs_sox21_coords)
+
+gene_name <- vector(length = length(rownames(top_motifs_Chga_coord1)))
+for(i in 1:length(rownames(top_motifs_Chga_coord1))){
+  gene_name[i] <- subset(pfm,names(pfm@listData) == rownames(top_motifs_Chga_coord1)[i])[[1]]@name
+}
+top_motifs_Chga_coord1$gene_name <- gene_name
+
+
+Chgb_peak_coord1 <- GenomicRanges::GRanges(seqnames = c("chr2"),
+                ranges = IRanges::IRanges(start = c(146220585),
+                                          width = 3397))
+
+
+Chgb_peak1_motifs <- matchMotifs(pfm, Chgb_peak_coord1,
+                         genome = "BSgenome.Mmusculus.UCSC.mm10",
+                         out = "scores")
+
+top_motifs_Chgb_coord1 <- t(as.matrix(motifScores(Chgb_peak1_motifs)))
+top_motifs_Chgb_coord1 <- as.data.frame(top_motifs_Chgb_coord1)
+#top_motifs_sox21_coords <- sort(top_motifs_sox21_coords)
+
+gene_name <- vector(length = length(rownames(top_motifs_Chgb_coord1)))
+for(i in 1:length(rownames(top_motifs_Chgb_coord1))){
+  gene_name[i] <- subset(pfm,names(pfm@listData) == rownames(top_motifs_Chgb_coord1)[i])[[1]]@name
+}
+top_motifs_Chgb_coord1$gene_name <- gene_name
+
+```
+
+## Get TF motifs present in all neuroendocrine marker peaks
+```{r}
+library(tidyverse)
+#sort by top score
+top_motifs_Ascl1_coord1 %>% arrange(desc(V1)) ->top_motifs_Ascl1_coord1
+top_motifs_Ascl1_coord2 %>% arrange(desc(V1)) ->top_motifs_Ascl1_coord2
+top_motifs_Chga_coord1 %>% arrange(desc(V1)) -> top_motifs_Chga_coord1
+top_motifs_Chgb_coord1 %>% arrange(desc(V1)) -> top_motifs_Chgb_coord1
+top_motifs_Insm1_coord1 %>% arrange(desc(V1)) -> top_motifs_Insm1_coord1 
+top_motifs_Insm1_coord2  %>% arrange(desc(V1)) -> top_motifs_Insm1_coord2
+
+
+
+common_TFs <- Reduce(intersect, list(top_motifs_Ascl1_coord1$gene_name[1:200],top_motifs_Ascl1_coord2$gene_name[1:200],top_motifs_Chga_coord1$gene_name[1:200],top_motifs_Chgb_coord1$gene_name[1:200],top_motifs_Insm1_coord1$gene_name[1:200], top_motifs_Insm1_coord2$gene_name[1:200]))
+
+common_TFs
+```
+
+
+
+## Footprinting
+```{r}
+
+
+# gather the footprinting information for sets of motifs
+PRN <- Footprint(
+  object = PRN,
+  regions = peak_coords[1] ,#c("MA0627.1", "MA0867.2", "MA0866.1"),
+  genome = BSgenome.Mmusculus.UCSC.mm10
+)
+
+# plot the footprint data for each group of cells
+p2 <- PlotFootprint(PRN)
+```
+
+## E2f3 peaks?
+```{r}
+
+###E2f3 possible Pou2f3 motif coords
+DefaultAssay(PRN) <- "peaks"
+PRN <- SetIdent(PRN, value = "predicted.id")
+
+CoveragePlot(
+  object = PRN,
+  region = "chr13-30078111-30078127",
+  extend.upstream = 500,
+  extend.downstream = 500
+)
+
+
+#### Foxa2
+
+
+CoveragePlot(
+  object = PRN,
+  region = "chr2-147884797-147888889",
+  extend.upstream = 100,
+  extend.downstream = 100
+)
+
+
+##### kit 
+
+CoveragePlot(
+  object = PRN,
+  region = "chr5-75735647-75817382",
+  extend.upstream = 1000,
+  extend.downstream = 1000
+)
+```
+

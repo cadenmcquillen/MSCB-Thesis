@@ -1,0 +1,261 @@
+---
+title: "Trajectory_Analysis"
+author: "Caden McQuillen"
+date: '2023-03-08'
+output: 
+  html_document: 
+    toc: yes
+---
+
+
+#monocle setup
+```{r}
+library(monocle3)
+library(Seurat)
+library(SeuratWrappers)
+library(dplyr)
+library(patchwork)
+#library(dplyr)
+#macrophages <- readRDS("./Seurat_Objects/PRN_6wk_8wk_Macrophages.rds")
+#importCDS(macrophages)
+cds <- as.cell_data_set(macrophages)
+cds <- cluster_cells(cds, resolution=1e-3)
+
+
+p1 <- plot_cells(cds, color_cells_by = "cluster", show_trajectory_graph = FALSE)
+p2 <- plot_cells(cds, color_cells_by = "partition", show_trajectory_graph = FALSE)
+wrap_plots(p1, p2)
+```
+
+#Trajectory Analysis
+
+## Learn graph
+```{r}
+cds <- learn_graph(cds, use_partition = TRUE, verbose = TRUE)
+```
+
+## Plot trajectory
+```{r}
+plot_cells(cds,
+           color_cells_by = "cluster",
+           label_groups_by_cluster=FALSE,
+           label_leaves=FALSE,
+           label_branch_points=FALSE)
+```
+
+```{r}
+library(Seurat)
+FeaturePlot(object = macrophages, features = 'Il10ra', reduction = "umap")
+FeaturePlot(object = macrophages, features = 'Il10rb', reduction = "umap")
+FeaturePlot(object = macrophages, features = 'Il1b', reduction = "umap")
+
+M1_markers_Li <- c("Cd86", "Nos2", "Tnf")
+M2_markers_Li  <- c("Chil3", "Arg1", "Retnla", "Mgl2")
+
+FeaturePlot(object = macrophages, features = M1_markers_Li, reduction = "umap")
+FeaturePlot(object = macrophages, features = M2_markers_Li, reduction = "umap")
+
+#adipocyte markers
+FeaturePlot(object = macrophages, features = "Adipoq", reduction = "umap")
+FeaturePlot(object = macrophages, features = "Lipe", reduction = "umap")
+FeaturePlot(object = macrophages, features = "Plin1", reduction = "umap")
+
+#macrophage markers
+FeaturePlot(object = macrophages, features = "Cd68", reduction = "umap")
+FeaturePlot(object = macrophages, features = "C1qc", reduction = "umap")
+
+
+
+
+
+```
+
+
+
+## Choose root of trajectory
+```{r}
+cds <- order_cells(cds, root_cells = colnames(cds[,clusters(cds) == 4]))
+plot_cells(cds,
+           color_cells_by = "pseudotime",
+           group_cells_by = "cluster",
+           label_cell_groups = FALSE,
+           label_groups_by_cluster=FALSE,
+           label_leaves=FALSE,
+           label_branch_points=FALSE,
+           label_roots = FALSE,
+           trajectory_graph_color = "grey60")
+```
+
+## Genes change over pseudotime
+```{r}
+cds_graph_test_results <- graph_test(cds,
+                                     neighbor_graph = "principal_graph",
+                                     cores = 2)
+
+save(cds, cds_graph_test_results,file =  "PRN_6wk_8wk_monocle.Rdata")
+```
+
+## Plot genes that change
+```{r}
+
+load("./PRN_6wk_8wk_monocle.RData")
+rowData(cds)$gene_short_name <- row.names(rowData(cds))
+
+head(cds_graph_test_results, error=FALSE, message=FALSE, warning=FALSE)
+
+deg_ids <- rownames(subset(cds_graph_test_results[order(cds_graph_test_results$morans_I, decreasing = TRUE),], q_value < 0.05))
+
+il10 <- deg_ids[deg_ids %in% c("Il10ra", "Il10ra")]
+
+plot_cells(cds,
+           genes=deg_ids[1:20],
+           show_trajectory_graph = FALSE,
+           label_cell_groups = FALSE,
+           label_leaves = FALSE)
+
+plot_cells(cds,
+           genes="Il10ra",
+           show_trajectory_graph = FALSE,
+           label_cell_groups = FALSE,
+           label_leaves = FALSE)
+
+plot_cells(cds,
+           genes=c("C1qa", "C1qb", "C1qc", "Ctsb", "Apoe"),
+           show_trajectory_graph = FALSE,
+           label_cell_groups = FALSE,
+           label_leaves = FALSE)
+
+cds_subset <- cds[il10,]
+plot_genes_in_pseudotime(cds_subset)
+
+cds_subset <- cds["Il10rb",]
+plot_genes_in_pseudotime(cds_subset)
+
+cds_subset <- cds["C1qa",]
+plot_genes_in_pseudotime(cds_subset)
+
+cds_subset <- cds["C1qb",]
+plot_genes_in_pseudotime(cds_subset)
+
+cds_subset <- cds["C1qc",]
+plot_genes_in_pseudotime(cds_subset)
+
+cds_subset <- cds["Ctsb",]
+plot_genes_in_pseudotime(cds_subset)
+
+
+cds_subset <- cds["Ctsl",]
+plot_genes_in_pseudotime(cds_subset)
+
+cds_subset <- cds["Apoe",]
+plot_genes_in_pseudotime(cds_subset)
+
+
+cds_subset <- cds["Cd36",]
+plot_genes_in_pseudotime(cds_subset)
+
+cds_subset <- cds["Cxcl9",]
+plot_genes_in_pseudotime(cds_subset)
+
+
+cds_subset <- cds["Ccl8",]
+plot_genes_in_pseudotime(cds_subset)
+
+
+cds_subset <- cds["Folr2",]
+plot_genes_in_pseudotime(cds_subset)
+
+
+cds_subset <- cds["Il1b",]
+plot_genes_in_pseudotime(cds_subset)
+
+cds_subset <- cds["Arg1",]
+plot_genes_in_pseudotime(cds_subset)
+
+cds_subset <- cds["Chil3",]
+plot_genes_in_pseudotime(cds_subset)
+
+cds_subset <- cds["Mrc1",]
+plot_genes_in_pseudotime(cds_subset)
+
+#https://www.cell.com/trends/immunology/fulltext/S1471-4906(22)00094-1 lipd associated macrophages in cancer
+
+
+#https://www.tandfonline.com/doi/full/10.1080/2162402X.2022.2085432
+# Functionally, LAMs were characterized by a canonical functional signature of M2-like macrophages, lipid accumulation and enhancing phagocytosis, and they were mostly distributed in tumor-adipose junctional regions.
+
+
+#https://www.cell.com/cell/pdf/S0092-8674(17)31366-1.pdf
+#An anti-inflammatory cytokine (Il10) suppresses adipocyte thermogenesis to limit energy expenditure.
+
+#https://www.nature.com/articles/nri.2017.57 IL-10 targets macrophage metabolism
+
+#https://www.frontiersin.org/articles/10.3389/fimmu.2019.02993/full New Insights on the Role of Lipid Metabolism in the Metabolic Reprogramming of Macrophages
+
+
+# https://www.science.org/doi/10.1126/science.aal3535 Anti-inflammatory effect of IL-10 mediated by metabolic reprogramming of macrophages
+```
+
+## Correlation of Il10ra and Il10rb expression with Arg1, Folr2, and Ccl8
+```{r}
+library(ggplot2)
+library(ggpubr)
+FeatureScatter(macrophages, feature1  = "Il10ra", feature2 = "Arg1", plot.cor = FALSE)+
+stat_cor(method = "pearson", label.x = 1, label.y = 5)
+
+FeatureScatter(macrophages, feature1  = "Il10ra", feature2 = "Folr2", plot.cor = FALSE)+
+stat_cor(method = "pearson", label.x = 1, label.y = 5)
+
+FeatureScatter(macrophages, feature1  = "Il10ra", feature2 = "Ccl8", plot.cor = FALSE)+
+stat_cor(method = "pearson", label.x = 1, label.y = 5)
+
+FeatureScatter(macrophages, feature1  = "Il10rb", feature2 = "Arg1", plot.cor = FALSE)+
+stat_cor(method = "pearson", label.x = 1, label.y = 5)
+
+FeatureScatter(macrophages, feature1  = "Il10rb", feature2 = "Folr2", plot.cor = FALSE)+
+stat_cor(method = "pearson", label.x = 1, label.y = 5)
+
+FeatureScatter(macrophages, feature1  = "Il10rb", feature2 = "Ccl8", plot.cor = FALSE)+
+stat_cor(method = "pearson", label.x = 1, label.y = 5)
+
+
+
+```
+
+
+
+## Pr mice LA gene expression
+
+```{r}
+#PR_macrophages <- readRDS("./Seurat_Objects/PR_8wk_Clustered_macrophages.rds")
+
+FeaturePlot(object = PR_macrophages , features = "C1qa", reduction = "umap")
+FeaturePlot(object = PR_macrophages , features = "C1qb", reduction = "umap")
+FeaturePlot(object = PR_macrophages , features = "C1qc", reduction = "umap")
+FeaturePlot(object = PR_macrophages , features = "Ctsb", reduction = "umap")
+FeaturePlot(object = PR_macrophages, features = "Apoe", reduction = "umap")
+FeaturePlot(object = PR_macrophages , features = "Il10ra", reduction = "umap")
+FeaturePlot(object = PR_macrophages , features = "Il10rb", reduction = "umap")
+FeaturePlot(object = PR_macrophages , features = "Il10", reduction = "umap")
+
+FeaturePlot(object = PR_macrophages , features = "Folr2", reduction = "umap")
+
+
+FeaturePlot(object = PR_macrophages , features = "Ccl8", reduction = "umap")
+
+
+FeaturePlot(object = PR_macrophages , features = "Cd68", reduction = "umap")
+FeaturePlot(object = PR_macrophages, features = "Arg1", reduction = "umap")
+
+
+# "C1qa", "Arg1", "Cd68",
+
+```
+
+
+
+
+
+
+
+

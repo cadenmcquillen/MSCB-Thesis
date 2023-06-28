@@ -1,0 +1,111 @@
+---
+title: "FigR"
+author: "Caden McQuillen"
+date: '2023-05-15'
+output: html_document
+---
+
+```{r}
+library(FigR)
+library(Seurat)
+```
+
+## load data
+```{r}
+PRN <- readRDS("./scATAC/PRN_6wk_8wk/PRN_6wk_8wk_ATAC_seurat.rds")
+PRN_6wk_8wk <- readRDS("./Seurat_Objects/Annotated_PRN_6wk_8wk.rds")
+```
+
+
+## Get transfer anchors
+```{r}
+
+anchors <- FindTransferAnchors(reference = PRN_6wk_8wk, query = PRN, reduction = "rpca", query.assay = "RNA")
+
+
+```
+
+## Get PCs from each dataset
+```{r}
+isATAC <- grepl("query",rownames(anchors@object.list[[1]]@reductions$pca))
+
+ATACcells <- rownames(anchors@object.list[[1]]@reductions$pca)[isATAC]
+RNAcells <- rownames(anchors@object.list[[1]]@reductions$pca)[!isATAC]
+
+ATAC_PCs <- anchors@object.list[[1]]@reductions$pca@cell.embeddings[isATAC,]
+RNA_PCs <- anchors@object.list[[1]]@reductions$pca@cell.embeddings[!isATAC,]
+
+pairing <- pairCells(ATAC = ATAC_PCs,
+                     RNA = RNA_PCs,
+                     keepUnique = TRUE)
+```
+
+## convert
+```{r}
+SEfromSignac <- function(obj, # Seurat object containing assay that houses peak (ATAC) info
+                         assayName="peaks", # Assay name for peak (ATAC) info
+                         fetchRawCounts=TRUE){ # Whether to use raw counts (Default), otherwise fetch normalized counts if present 
+  message("Pulling info from assay container: ",assayName,"\n")
+  
+  peakRanges <- obj@assays[[assayName]]@ranges
+  
+  if(fetchRawCounts){
+    message("Using raw peak counts to store in SE ..\n")
+    peakCounts <- obj@assays[[assayName]]@counts
+  } else {
+    message("WARNING: Pulling from normalized peak count slot.\n If running FigR's gene-peak association testing, make sure you set normalizeATACmat to FALSE in the runGenePeakcorr and getDORCscores functions to avoid renormalizing data internally")
+  peakCounts <- obj@assays[[assayName]]@data
+    }
+    
+  
+  cellMeta <- DataFrame(obj@meta.data)
+  
+  
+  SE <- SummarizedExperiment::SummarizedExperiment(assays = list(counts=peakCounts),
+                                                   rowRanges = peakRanges,
+                                                   colData = cellMeta)
+  return(SE)
+}
+
+# Function call (on example data)
+# Test run on mini peakset (built into Signac)
+ATAC.se <- SEfromSignac(obj=PRN,assayName = "peaks",fetchRawCounts = TRUE)
+ATAC.se
+```
+
+## Convert from seurat to SE
+```{r}
+PRN.se <- PRN@assays$peaks
+
+
+counts <- PRN@assays$peaks@counts
+rowRanges <- PRN@assays$peaks@ranges
+colData <- colnames(PRN@assays$peaks@counts)
+
+PRN.se <- SummarizedExperiment(assays=list(counts=counts),
+                     rowRanges=rowRanges, colData=colData)
+PRN_6wk_8wk.matrix <- PRN_6wk_8wk@assays$RNA@scale.data
+
+```
+
+## Subset to only paired cells
+```{r}
+atac_ids <- pairing$ATAC
+rna_ids <- pairing$RNA
+atac_ids <- gsub("_query","", atac_ids)
+rna_ids <- gsub("_reference","", rna_ids)
+ATAC.se.paired <- ATAC.se[,atac_ids]
+RNAmat.paired <- PRN_6wk_8wk.matrix[,rna_ids]
+RNAmat.paired <- RNAmat.paired[-31054, ]
+```
+
+## Peak gene association testing
+```{r}
+cisCorr <- runGenePeakcorr(ATAC.se = ATAC.se.paired,
+                           RNAmat = RNAmat.paired,
+                           genome = "mm10", # One of hg19, mm10 or hg38 
+                           
+                           p.cut = NULL, # Set this to NULL and we can filter later
+                           n_bg = 100)
+```
+

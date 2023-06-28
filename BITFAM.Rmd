@@ -1,0 +1,106 @@
+---
+title: "BITFAM"
+author: "Caden McQuillen"
+date: '2023-01-17'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+`
+
+
+```{r BITFAM}
+library(BITFAM)
+
+
+PRN_6wk_8wk = readRDS("PRN_6wk_8wk_Annotated.rds")
+# Get data from suerat object:
+exprMat <- PRN_6wk_8wk@assays$RNA@data
+
+#Run BITFAM main function (Takes long time to run)
+BITFAM_res <- BITFAM(data = exprMat, species = "mouse", scATAC_obj = NA, ncores = parallel::detectCores(), interseted_TF = "Pou2f3")
+
+#Get W and Z matrices, Y (Gene Expression Matrix) = W (Weights of TF to Gene) x Z (TF actvitity) + Error
+Z <- BITFAM_activities(BITFAM_res)
+W <- BITFAM_weights(BITFAM_res)
+
+#Save Everything
+saveRDS(Z, "BITFAM_activities.rds")
+saveRDS(W, "BITFAM_weights.rds")
+saveRDS(BITFAM_res, "BITFAM_res.rds")
+```
+
+
+```{r Downstream BITFAM}
+library(Seurat)
+#get vector of Pou2f3 Postive Cells and vector of cell type for each cell
+Pou2f3_Pos = PRN_6wk_8wk@meta.data$Pou2f3_Expression
+Celltypes =  PRN_6wk_8wk@meta.data[["cell.type"]]
+Binary_Pou2f3_Pos = vector()
+#create binary vector, 1 if Pou2f3 Postive and Neuroendocrine Cell
+for (i in 1:length(Pou2f3_Pos)) {
+  if (Pou2f3_Pos[i] == "Pos" && Celltypes[i]=="Neuroendocrine"){
+    Binary_Pou2f3_Pos = append(Binary_Pou2f3_Pos, 1)
+  }
+  else{
+    Binary_Pou2f3_Pos = append(Binary_Pou2f3_Pos, 0)
+  }
+
+}
+
+#Random Forest Algorithm to deduce top 50 "most important" TFs
+library(randomForest)
+
+Z = readRDS("./BITFAM/BITFAM_activies.rds")
+Z <- as.data.frame(Z)
+
+#add which cells we are interested in
+Z_Pou2f3_Neuroendo<- cbind(Z, Binary_Pou2f3_Pos)
+colnames(Z_Pou2f3_Neuroendo)[97] <- "Pou2f3_Neuroendocrine"
+Z_Pou2f3_Neuroendo$Pou2f3_Neuroendocrine <- factor(Z_Pou2f3_Neuroendo$Pou2f3_Neuroendocrine)
+
+
+fit_rf <- randomForest(Pou2f3_Neuroendocrine~., data = Z_Pou2f3_Neuroendo)  ## build the RF model
+Pou2f3_Neuroendocrine_tf_top50 <- importance(fit_rf)[order(importance(fit_rf)[, 1], decreasing = T), ][1:50]
+selected_TF_Z <- Z[, names(c(Pou2f3_Neuroendocrine_tf_top50))]
+selected_TF_Z <- apply(selected_TF_Z, 2, function(x) (x-min(x))/(max(x)-min(x)))
+saveRDS(selected_TF_Z, "top50_Pou2f3_Neuroendocrine_inferred_TF.rds")
+
+
+
+
+
+
+
+Pou2f3_Neg = PRN_6wk_8wk@meta.data$Pou2f3_Expression
+Celltypes =  PRN_6wk_8wk@meta.data[["cell.type"]]
+Binary_Pou2f3_Neg = vector()
+#create binary vector, 1 if Pou2f3 Postive and Neuroendocrine Cell
+for (i in 1:length(Pou2f3_Neg)) {
+  if (Pou2f3_Neg[i] == "Neg" && Celltypes[i]=="Neuroendocrine"){
+    Binary_Pou2f3_Neg = append(Binary_Pou2f3_Neg, 1)
+  }
+  else{
+    Binary_Pou2f3_Neg = append(Binary_Pou2f3_Neg, 0)
+  }
+
+}
+#add which cells we are interested in
+Z_Neuroendo<- cbind(Z, Binary_Pou2f3_Neg)
+colnames(Z_Neuroendo)[97] <- "Neuroendocrine"
+Z_Neuroendo$Neuroendocrine <- factor(Z_Neuroendo$Neuroendocrine)
+
+
+fit_rf <- randomForest(Neuroendocrine~., data = Z_Neuroendo)  ## build the RF model
+Neuroendocrine_tf_top50 <- importance(fit_rf)[order(importance(fit_rf)[, 1], decreasing = T), ][1:50]
+selected_TF_Z <- Z[, names(c(Neuroendocrine_tf_top50))]
+selected_TF_Z <- apply(selected_TF_Z, 2, function(x) (x-min(x))/(max(x)-min(x)))
+saveRDS(selected_TF_Z, "top50_Neuroendocrine_inferred_TF.rds")
+
+
+```
+
+

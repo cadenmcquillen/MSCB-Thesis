@@ -1,0 +1,248 @@
+---
+title: "MacSpectrum"
+author: "Caden McQuillen"
+date: '2023-04-25'
+output: html_document
+---
+
+## Read in PRN macrophage seurat object
+```{r, message=FALSE}
+PRN_macrophages <- readRDS("/Users/Caden/Desktop/Pou2f3_Data/Seurat_Objects/PRN_6wk_8wk_Macrophages.rds")
+```
+
+## Extract the gene expression matrix and convert to ensembl gene names
+```{r, message=FALSE}
+library(tidyverse)
+library(readxl)
+gene_matrix <- PRN_macrophages@assays$RNA@data
+ensembl_names <- read_excel("/Users/Caden/Downloads/id_convert_table_mouse.xlsx")
+
+newRownomes <-ensembl_names$`Ensembl ID`[match(rownames(gene_matrix), ensembl_names$`Gene Name`)] 
+rownames(gene_matrix) <- newRownomes
+
+## Filter out genes with no expression
+gene_sums <- Matrix::rowSums(gene_matrix)
+nonzero_genes <- which(gene_sums > 0 )
+
+slim_matrix <- gene_matrix[nonzero_genes,]
+slim_matrix_convert <- tibble::rownames_to_column(as.data.frame(slim_matrix), "Ensembl")
+
+```
+## PR macrophage preprocessing
+```{r, message=FALSE}
+PR_macrophages <- readRDS("/Users/Caden/Desktop/Pou2f3_Data/Seurat_Objects/PR_8wk_Clustered_macrophages.rds")
+```
+
+## Extract the gene expression matrix and convert to ensembl gene names for PR
+```{r, message=FALSE}
+library(tidyverse)
+library(readxl)
+gene_matrix2 <- PR_macrophages@assays$RNA@data
+ensembl_names <- read_excel("/Users/Caden/Downloads/id_convert_table_mouse.xlsx")
+
+newRownomes <-ensembl_names$`Ensembl ID`[match(rownames(gene_matrix2), ensembl_names$`Gene Name`)] 
+rownames(gene_matrix2) <- newRownomes
+
+## Filter out genes with no expression
+gene_sums2 <- Matrix::rowSums(gene_matrix2)
+nonzero_genes2 <- which(gene_sums2 > 0 )
+
+slim_matrix2 <- gene_matrix2[nonzero_genes2,]
+slim_matrix_convert2 <- tibble::rownames_to_column(as.data.frame(slim_matrix2), "Ensembl")
+
+```
+
+
+```{r}
+library(macSpectrum)
+library(tibble)
+library(ggExtra)
+
+#macspec <- macSpectrum::macspec(slim_matrix_convert, PRN_macrophages$Age)
+#macspec_PR <- macSpectrum::macspec(slim_matrix_convert2, PR_macrophages$Age)
+
+combined_slim_matrix <-  merge(slim_matrix_convert,slim_matrix_convert2,by="Ensembl",all.x=FALSE) 
+
+combined_geno <- c(rep("PRN", length(colnames(slim_matrix_convert))-1), rep("PR", length(colnames(slim_matrix_convert2))-1))
+macspec_combo <- macSpectrum::macspec(combined_slim_matrix, combined_geno)
+
+
+scatterplot <- ggplot(macspec_combo , aes(MPI, AMDI)) +geom_point(aes(colour = factor(Feature)))+ xlim(-20, 20) + annotate("segment", x = 0, xend = 0, y = -30, yend = 30,
+  colour = "black") + annotate("segment", x = -20, xend = 20, y = 0, yend = 0,
+  colour = "black")
+
+ggMarginal(scatterplot, groupColour = TRUE, groupFill = TRUE)
+
+
+histogram <- ggplot(macspec_combo, aes(x=MPI, color=Feature, fill = Feature)) +
+  geom_histogram(aes(y=..density..),alpha=0.5, position="identity") 
+ 
+
+
+m2 <- macspec_combo[which(macspec_combo$MPI <=0 ),]
+m2 <- m2[which(m2$AMDI >=0 ),]
+
+m0 <- macspec_combo[which(macspec_combo$MPI <= 0),]
+m0 <- m0[which(m0$AMDI < 0 ),]
+
+m1 <- macspec_combo[which(macspec_combo$MPI > 0 ),]
+m1 <- m1[which(m1$AMDI >= 0),]
+
+m3 <- macspec_combo[which(macspec_combo$MPI  > 0 ),]
+m3 <- m3[which(m3$AMDI < 0),]
+
+prn_m2 <- which(m2$Feature == "PRN")
+pr_m2 <- which(m2$Feature == "PR")
+
+prn_m0 <- which(m0$Feature == "PRN")
+pr_m0 <- which(m0$Feature == "PR")
+
+prn_m1 <- which(m1$Feature == "PRN")
+pr_m1 <- which(m1$Feature == "PR")
+
+prn_m3 <- which(m3$Feature == "PRN")
+pr_m3 <- which(m3$Feature == "PR")
+
+prn_total <- sum(length(prn_m0),length(prn_m1),length(prn_m2), length(prn_m3))
+pr_total <- sum(length(pr_m0),length(pr_m1),length(pr_m2), length(pr_m3))
+
+percents <- c((length(prn_m0)+length(prn_m3))/prn_total,length(prn_m1)/prn_total,length(prn_m2)/prn_total, (length(pr_m0)+length(pr_m3))/pr_total, length(pr_m1)/pr_total, length(pr_m2)/pr_total)
+state <- c("M0", "M1", "M2","M0", "M1", "M2")
+genotype <- c(rep("PRN", 3), rep("PR",3))
+
+ploting_df <- data.frame(percents,state,genotype)
+
+stacked_bar <- ggplot(ploting_df , aes(fill=state, y=percents, x=genotype)) +
+  geom_bar(position="fill", stat="identity")
+
+
+```
+
+
+### Get Macrophage Cell numbers
+```{r, eval=FALSE}
+PRN <- readRDS("/Users/Caden/Desktop/Pou2f3_Data/Seurat_Objects/Annotated_PRN_6wk_8wk.rds")
+PR <- readRDS("/Users/Caden/Desktop/Pou2f3_Data/Seurat_Objects/PR_8wk_QC_Clustered.rds")
+
+#PRN total cells = 29036
+#Pr total cells = 16909
+```
+
+### Macrophage as percentaage of total cells plot
+```{r}
+macro_total <- c(4420, 1197)
+macro_proportion <- c((4420/29036),(1197/16909) )
+genotype <- c("PRN", "PR")
+
+plot_df <- data.frame(macro_total,macro_proportion,genotype)
+
+
+mac_total_bar <- ggplot(plot_df , aes(y=percents, x=genotype)) +
+  geom_bar(stat="identity")
+
+ggplot(plot_df, aes(x=genotype, y=macro_total, fill = genotype)) + 
+    geom_bar(stat="identity") + ylab("Raw total") + ggtitle("Macrophages")+ theme(
+plot.title = element_text( size=14, face="bold", hjust = 0.5)) 
+
+
+ggplot(plot_df, aes(x=genotype, y=macro_proportion, fill = genotype)) + 
+    geom_bar(stat="identity") + ylab("Proportion of total cells") + ggtitle("Macrophages")+ theme(
+plot.title = element_text( size=14, face="bold", hjust = 0.5)) 
+```
+
+
+## Add state column
+```{r}
+macspec_combo$state <- NA
+
+for (i in 1:length(macspec_combo$MPI)){
+  if(macspec_combo[i,]$AMDI >= 0){
+    if(macspec_combo[i,]$MPI <= 0){
+      macspec_combo[i,]$state <- "M2"
+    }else{
+      macspec_combo[i,]$state <- "M1"
+    }
+  }else{
+    macspec_combo[i,]$state <- "M0"
+  }
+}
+#macspec_combo$state <- ifelse(macspec_combo$MPI <= 0 && macspec_combo$AMDI >= 0, "M2", "M0" )
+#macspec_combo$state <- ifelse(macspec_combo$MPI > 0 && macspec_combo$AMDI >= 0, "M1", "M0" )
+
+
+```
+
+## Add state to PRN seurat object as metadata
+```{r}
+just_prn <- subset(macspec_combo, Feature == "PRN")
+barcodes <- row.names(just_prn)
+just_prn <- just_prn$state
+names(just_prn) <- barcodes
+PRN_macrophages <- AddMetaData(PRN_macrophages, just_prn, "State" )
+```
+
+## save rds
+```{r}
+saveRDS(PRN_macrophages, "./Seurat_Objects/PRN_6wk_8wk_Macrophages.rds")
+```
+
+## Plot colored by state
+```{r}
+PRN_macrophages <- SetIdent(PRN_macrophages, value = "State")
+DimPlot(PRN_macrophages, reduction = "tsne")
+```
+
+
+## Add state to PR seurat object as metadata
+```{r}
+just_pr <- subset(macspec_combo, Feature == "PR")
+barcodes <- row.names(just_pr)
+just_pr <- just_pr$state
+names(just_pr) <- barcodes
+PR_macrophages <- AddMetaData(PR_macrophages, just_pr, "State" )
+```
+
+## save rds
+```{r}
+saveRDS(PR_macrophages, "./Seurat_Objects/PR_8wk_Clustered_macrophages.rds")
+```
+
+## Plot colored by state
+```{r}
+PR_macrophages <- SetIdent(PR_macrophages, value = "State")
+PR_macrophages@active.ident <- factor(PR_macrophages@active.ident, 
+                            levels=c("M0", "M1", "M2"))
+DimPlot(PR_macrophages, cols = c("#F8766D", "#00BA38", "#619CFF"),reduction = "tsne")
+```
+
+## Check for Ptprc (Cd45) expression in PRN
+```{r}
+FeaturePlot(PRN_macrophages, reduction = "tsne",features = "Ptprc")
+PRN_Cd45 <- WhichCells(PRN_macrophages, expression = Ptprc >0)
+PRN_Cd45_proportion <- length(PRN_Cd45)/4220
+```
+
+
+## Check for Ptprc (Cd45) expression in Pr
+```{r}
+FeaturePlot(PR_macrophages, reduction = "tsne",features = "Ptprc")
+PR_Cd45 <- WhichCells(PR_macrophages, expression = Ptprc >0)
+PR_Cd45_proportion <- length(PR_Cd45)/1197
+```
+
+
+## Bargraph
+```{r}
+
+Cd45_proportion <- c(PRN_Cd45_proportion, PR_Cd45_proportion)
+genotype <- c("PRN", "PR")
+
+Cd45_plot_df <- data.frame(Cd45_proportion,genotype)
+
+
+ggplot(Cd45_plot_df, aes(x=genotype, y=Cd45_proportion, fill = genotype)) + 
+    geom_bar(stat="identity") + ylab("Cd45+ Proportion") + ggtitle("Macrophages")+ theme(
+plot.title = element_text( size=14, face="bold", hjust = 0.5)) 
+
+```
+

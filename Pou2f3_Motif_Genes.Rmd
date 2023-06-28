@@ -1,0 +1,282 @@
+---
+title: "Pou2f3_Motif_Genes"
+author: "Caden McQuillen"
+date: '2023-01-24'
+output: 
+  html_document: 
+    toc: yes
+---
+
+
+## Pou2f3 Motif Genes 1kb
+```{r Pou2f3 Motif Genes}
+
+#UCI's MotifMap using Mouse (mm9 multiz30way)
+motif_gene_list = read.csv("./Pou2f3_Motif_Network/Pou2f3_MotifLocations.csv")
+motif_genes_only = unique(motif_gene_list[,15])
+#Upregulated DEGs from Pou2f3+ neuroendocrine vs Pou2f3- neuroendocrine
+Pou2f3_Pos_DEGs = read.csv("./DEGs/Upregulated_Neuroendocrine_Degs_by_Pou2f3_Positive.csv")
+Pou2f3_Pos_DEGs_genes_only = Pou2f3_Pos_DEGs[,2]
+#BITFAM top 50 inferred TFs for pou2f3 + neuroendocrine
+BITFAM_Pou2f3_top50_TF <- readRDS("./BITFAM/top50_Pou2f3_Neuroendocrine_inferred_tf.rds")
+BITFAM_Pou2f3_top50_TF <-colnames(BITFAM_Pou2f3_top50_TF)
+overlap = intersect(motif_genes_only, Pou2f3_Pos_DEGs_genes_only)
+print(overlap)
+print("---------------------------------------------------------------------------------------------")
+BITFAM_overlap = intersect(motif_genes_only,BITFAM_Pou2f3_top50_TF)
+
+print(BITFAM_overlap)
+
+
+```
+
+## Interesting DEGs Gene Summaries 
+
+ **Lyn** - maybe involved in the regulation of mast cell degranulation, and erythroid differentiation. Part of Reactome "Nervous System Development" Pathway which was significantly enriched using upregulated Pou2f3 DEGs
+  
+ **Hmg20b** - Predicted to enable DNA binding activity. Predicted to be involved in regulation of gene expression. Predicted to act upstream of or within negative regulation of protein sumoylation; positive regulation of neuron differentiation; and skeletal muscle cell differentiation.
+ 
+ **Cmtm8** - This gene acts as a tumor suppressor, and plays a role in regulating the migration of tumor cells. The encoded protein is thought to function as a a negative regulator of epidermal growth factor-induced signaling.
+ 
+ **Zfhx3** - encodes a transcription factor with multiple homeodomains and zinc finger motifs, and regulates myogenic and neuronal differentiation. The encoded protein suppresses expression of the alpha-fetoprotein gene by binding to an AT-rich enhancer motif. The protein has also been shown to negatively regulate c-Myb, and transactivate the cell cycle inhibitor cyclin-dependent kinase inhibitor 1A (also known as p21CIP1). This gene is reported to function as a tumor suppressor in several cancers
+ 
+**Shroom3** - This protein may be involved in regulating cell shape in certain tissues. In mice is required for proper neurulation
+
+**Ehf** - encodes a protein that belongs to an ETS transcription factor subfamily characterized by epithelial-specific expression (ESEs). The encoded protein acts as a transcriptional repressor and may be involved in epithelial differentiation and carcinogenesis
+
+**Egln3** - Involved in several processes, including activation of cysteine-type endopeptidase activity involved in apoptotic process; peptidyl-proline hydroxylation to 4-hydroxy-L-proline; and response to hypoxia. Located in cytosol and nucleus. Implicated in renal cell carcinoma. Biomarker of clear cell renal cell carcinoma.
+
+**1810046K07Rik** - Oca-t1
+
+**Elf3** - Enables DNA-binding transcription activator activity, RNA polymerase II-specific and sequence-specific double-stranded DNA binding activity. Involved in inflammatory response; negative regulation of transcription, DNA-templated; and positive regulation of transcription by RNA polymerase II.
+
+**Zfp428** - Predicted to enable metal ion binding activity. Broad expression in whole brain
+
+**Blnk** - encodes a cytoplasmic linker or adaptor protein that plays a critical role in B cell development. This protein bridges B cell receptor-associated kinase activation with downstream signaling pathways, thereby affecting various biological functions.
+
+**Espn** - encodes a multifunctional actin-bundling protein. It plays a major role in regulating the organization, dimensions, dynamics, and signaling capacities of the actin filament-rich, microvillus-type specializations that mediate sensory transduction in various mechanosensory and chemosensory cells.
+
+## Other DEGs Gene Summaries 
+
+**Stox2** - encodes a Storkhead-box_winged-helix domain containing protein. This protein is differentially expressed in decidual tissue and may be involved in the susceptibility to pre-eclampsia with fetal growth restriction.
+
+**Hpgds** - Prostaglandin-D synthase is a sigma class glutathione-S-transferase family member. The enzyme catalyzes the conversion of PGH2 to PGD2 and plays a role in the production of prostanoids in the immune system and mast cells. The presence of this enzyme can be used to identify the differentiation stage of human megakaryocytes
+
+**Sms** - encodes a protein belonging to the spermidine/spermin synthase family and catalyzes the production of spermine from spermidine. Pseudogenes of this gene are located on chromosomes 1, 5, 6 and X. Mutations in this gene cause an X-linked intellectual disability called Snyder-Robinson Syndrome 
+
+**Sh3bgrl** - Predicted to enable SH3 domain binding activity. Located in extracellular exosome. Diseases associated with SH3BGRL include Breast Cancer
+
+**Dync1i2** -  encodes a member of the dynein intermediate chain family. The encoded protein is a non-catalytic component of the cytoplasmic dynein 1 complex, which acts as a retrograde microtubule motor to transport organelles and vesicles. 
+
+**Arhgef2** - Rho GTPases play a fundamental role in numerous cellular processes that are initiated by extracellular stimuli that work through G protein coupled receptors. The encoded protein may form complex with G proteins and stimulate rho-dependent signals.
+
+**Spib** - encoded by this gene is a transcriptional activator that binds to the PU-box (5'-GAGGAA-3') and acts as a lymphoid-specific enhancer.
+
+
+
+## SPIB (human) motif genes
+```{r}
+#Predicted genes with SPIB motif
+SPIB_genes = read.csv("./Pou2f3_Motif_network/Human_Spib_exportMotifLocations.csv")
+SPIB_motif_genes_only = unique(SPIB_genes[,15])
+#Neuroendrocrine upregulated DEGs
+Neuroendocrine_DEGs = read.csv("./DEGs/Neuroendocrine_Degs_by_Pou2f3_Postive.csv")
+Neuroendocrine_Pos_DEGs_genes_only = subset(Neuroendocrine_DEGs , avg_log2FC < 0)
+Neuroendocrine_Pos_DEGs_genes_only = Neuroendocrine_Pos_DEGs_genes_only[,1]
+
+overlap = intersect(tolower(SPIB_motif_genes_only), tolower(Neuroendocrine_Pos_DEGs_genes_only))
+print(overlap)
+
+
+```
+**Hmgb2** - This gene encodes a member of the non-histone chromosomal high mobility group protein family. The proteins of this family are chromatin-associated and ubiquitously distributed in the nucleus of higher eukaryotic cells. In vitro studies have demonstrated that this protein is able to efficiently bend DNA and form DNA circles. These studies suggest a role in facilitating cooperative interactions between cis-acting proteins by promoting DNA flexibility. This protein was also reported to be involved in the final ligation step in DNA end-joining processes of DNA double-strand breaks repair and V(D)J recombination
+
+High-mobility group box 2 reflects exacerbated disease characteristics and poor prognosis in non-small cell lung cancer patients
+Knockdown of HMGB2 inhibits proliferation and invasion of renal tumor cells via the p-38MAPK pathway.
+HMGB2 is a negative regulator of telomerase activity in human embryonic stem and progenitor cells.
+High-mobility group box 2 promoted proliferation of cervical cancer cells by activating AKT signaling pathway.
+HMGB2 promotes the malignancy of human gastric cancer and indicates poor survival outcome.
+
+
+**Sox5** - This gene encodes a member of the SOX (SRY-related HMG-box) family of transcription factors involved in the regulation of embryonic development and in the determination of the cell fate. The encoded protein may act as a transcriptional regulator after forming a protein complex with other proteins. The encoded protein may play a role in chondrogenesis. 
+
+
+## Sox5 Motif genes
+```{r}
+
+#Predicted genes with Sox5 motif
+Sox5_genes = read.csv("./Pou2f3_Motif_network/Sox5_exportMotifLocations.csv")
+Sox5_motif_genes_only = unique(Sox5_genes[,15])
+#Neuroendrocrine upregulated DEGs
+Neuroendocrine_DEGs = read.csv("./DEGs/Neuroendocrine_Degs_by_Pou2f3_Postive.csv")
+Neuroendocrine_Pos_DEGs_genes_only = subset(Neuroendocrine_DEGs , avg_log2FC < 0)
+Neuroendocrine_Pos_DEGs_genes_only = Neuroendocrine_Pos_DEGs_genes_only[,1]
+
+Sox5_overlap = intersect(Sox5_motif_genes_only, Neuroendocrine_Pos_DEGs_genes_only)
+print(sort(Sox5_overlap))
+
+
+```
+
+## c-Rel motif genes
+```{r}
+#Predicted genes with c-Rel motif
+cRel_genes = read.csv("./Pou2f3_Motif_network/Pou2f3_BITFAM_overlap/c-Rel_exportMotifLocations.csv")
+cRel_motif_genes_only = unique(cRel_genes[,15])
+#Neuroendrocrine upregulated DEGs
+Neuroendocrine_DEGs = read.csv("./DEGs/Neuroendocrine_Degs_by_Pou2f3_Postive.csv")
+Neuroendocrine_Pos_DEGs_genes_only = subset(Neuroendocrine_DEGs , avg_log2FC < 0)
+Neuroendocrine_Pos_DEGs_genes_only = Neuroendocrine_Pos_DEGs_genes_only[,1]
+
+overlap = intersect(cRel_motif_genes_only, Neuroendocrine_Pos_DEGs_genes_only)
+print(overlap)
+
+```
+
+## Gfi1b motif genes
+```{r}
+#Predicted genes with Gfi1b motif
+Gfi1b_genes = read.csv("./Pou2f3_Motif_network/Pou2f3_BITFAM_overlap/Gfi1b_exportMotifLocations.csv")
+Gfi1b_motif_genes_only = unique(Gfi1b_genes[,15])
+#Neuroendrocrine upregulated DEGs
+Neuroendocrine_DEGs = read.csv("./DEGs/Neuroendocrine_Degs_by_Pou2f3_Postive.csv")
+Neuroendocrine_Pos_DEGs_genes_only = subset(Neuroendocrine_DEGs , avg_log2FC < 0)
+Neuroendocrine_Pos_DEGs_genes_only = Neuroendocrine_Pos_DEGs_genes_only[,1]
+
+overlap = intersect(Gfi1b_motif_genes_only, Neuroendocrine_Pos_DEGs_genes_only)
+print(overlap)
+
+```
+
+## Tgif1 Motif genes
+```{r}
+
+#Predicted genes with Tgif1 motif
+Tgif1_genes = read.csv("./Pou2f3_Motif_network/Neuroendo_upreg_deg_overlap/Tgif1_exportMotifLocations.csv")
+Tgif1_motif_genes_only = unique(Tgif1_genes[,15])
+#Neuroendrocrine upregulated DEGs
+Neuroendocrine_DEGs = read.csv("./DEGs/Neuroendocrine_Degs_by_Pou2f3_Postive.csv")
+Neuroendocrine_Pos_DEGs_genes_only = subset(Neuroendocrine_DEGs , avg_log2FC < 0)
+Neuroendocrine_Pos_DEGs_genes_only = Neuroendocrine_Pos_DEGs_genes_only[,1]
+
+Tgif1_overlap = intersect(Tgif1_motif_genes_only, Neuroendocrine_Pos_DEGs_genes_only)
+print(sort(Tgif1_overlap))
+
+
+```
+
+## BITFAM predicted Neuroendocrine TFs overlap with Pou2f3 target genes
+```{r}
+total_pou2f3_targets <- union(overlap,BITFAM_overlap)
+
+#BITFAM top 50 inferred TFs for neuroendocrine
+BITFAM_Neuroendocrine_top50_TF <- readRDS("./BITFAM/top50_Neuroendocrine_inferred_tf.rds")
+BITFAM_Neuroendocrine_top50_TF <-colnames(BITFAM_Neuroendocrine_top50_TF)
+Neuroendorine_tf_overlap = intersect(total_pou2f3_targets, BITFAM_Neuroendocrine_top50_TF)
+print(sort(BITFAM_Neuroendocrine_top50_TF))
+print(Neuroendorine_tf_overlap)
+```
+
+
+
+## Pou2f3 Motif Genes 10kb
+```{r Pou2f3 Motif Genes}
+
+#UCI's MotifMap using Mouse (mm9 multiz30way)
+motif_gene_list = read.csv("./Pou2f3_Motif_Network/Pou2f3_10kb_exportMotifLocations.csv")
+motif_genes_only = unique(motif_gene_list[,15])
+#Upregulated DEGs from Pou2f3+ neuroendocrine vs Pou2f3- neuroendocrine
+Pou2f3_Pos_DEGs = read.csv("./DEGs/Upregulated_Neuroendocrine_Degs_by_Pou2f3_Positive.csv")
+Pou2f3_Pos_DEGs_genes_only = Pou2f3_Pos_DEGs[,2]
+#BITFAM top 50 inferred TFs for pou2f3 + neuroendocrine
+BITFAM_Pou2f3_top50_TF <- readRDS("./BITFAM/top50_Pou2f3_Neuroendocrine_inferred_tf.rds")
+BITFAM_Pou2f3_top50_TF <-colnames(BITFAM_Pou2f3_top50_TF)
+overlap = intersect(motif_genes_only, Pou2f3_Pos_DEGs_genes_only)
+print(overlap)
+print("---------------------------------------------------------------------------------------------")
+BITFAM_overlap = intersect(motif_genes_only,BITFAM_Pou2f3_top50_TF)
+
+print(BITFAM_overlap)
+print("---------------------------------------------------------------------------------------------")
+sox_genes<-c( "Sox1",  "Sox2","Sox2ot",  "Sox4",  "Sox5", "Sox6", "Sox9","Sox11",  "Sox14",  "Sox21" )
+sox_family_overlap <-intersect(motif_genes_only,sox_genes)
+print(sox_family_overlap)
+
+```
+
+## SOX4 predicted targets
+```{r}
+#Predicted genes with Gfi1b motif
+SOX4_genes = read.csv("./Pou2f3_Motif_network/Neuroendo_upreg_deg_overlap/SOX4_exportMotifLocations.csv")
+SOX4_motif_genes_only = unique(SOX4_genes[,15])
+#Neuroendrocrine upregulated DEGs
+Neuroendocrine_DEGs = read.csv("./DEGs/Neuroendocrine_Degs_by_Pou2f3_Postive.csv")
+Neuroendocrine_Pos_DEGs_genes_only = subset(Neuroendocrine_DEGs , avg_log2FC < 0)
+Neuroendocrine_Pos_DEGs_genes_only = Neuroendocrine_Pos_DEGs_genes_only[,1]
+
+overlap = intersect(SOX4_motif_genes_only, toupper(Neuroendocrine_Pos_DEGs_genes_only))
+print(overlap)
+
+```
+
+
+
+
+
+## Plot expression of Pou2f3 and predicted targets
+```{r}
+library(Seurat)
+PRN_6wk_8wk = readRDS("./Seurat_Objects/Annotated_PRN_6wk_8wk.rds")
+PRN_6wk_8wk <- SetIdent(PRN_6wk_8wk, value = "cell.type3")
+pou2f3_targets <- VlnPlot(object = PRN_6wk_8wk,idents = c("Pou2f3_Neuroendocrine", "Neuroendocrine"), features = c("Pou2f3", "Spib",  "Gfi1b", "Sox1",  "Sox2", "Sox3",  "Sox4",  "Sox5", "Sox6", "Sox9","Sox11",  "Sox14",  "Sox21" ))
+
+sox_chain <- VlnPlot(object = PRN_6wk_8wk,idents = c("Pou2f3_Neuroendocrine", "Neuroendocrine"), features = c("Pou2f3", "Sox4", "Sox21" ))
+
+```
+#"Znf354c", "Foxp2", "Irf2", "Sox5", "Ctcf", "Pou5f1", "Ffeb1", "Sox17", "Rest", "Runx1", "Pparg", "Rxra", "Gfi1b", "Nfatc2" )
+
+## Plot correlation of Pou2f3 and Sox4
+```{r}
+library(Seurat)
+library(ggplot2)
+library(ggpubr)
+PRN_6wk_8wk = readRDS("./Seurat_Objects/Annotated_PRN_6wk_8wk.rds")
+PRN_6wk_8wk <- SetIdent(PRN_6wk_8wk, value = "cell.type3")
+#every cell
+FeatureScatter(PRN_6wk_8wk, feature1  = "Pou2f3", feature2 = "Sox4", plot.cor = FALSE)+
+stat_cor(method = "pearson", label.x = 1, label.y = 5)
+#subset just neuroendocrine (Pou2f3+ and Pou2f3-)
+Neuroendocrine <- subset(PRN_6wk_8wk, cell.type3 == "Neuroendocrine"| cell.type3 == "Pou2f3_Neuroendocrine")
+FeatureScatter(Neuroendocrine, feature1  = "Pou2f3", feature2 = "Sox4", plot.cor = FALSE) +
+stat_cor(method = "pearson", label.x = 1, label.y = 5)
+
+#subset just Pou2f3+
+Pou2f3_only <-subset(PRN_6wk_8wk, Pou2f3_Expression == "Pos")
+Pou2f3_only <-subset(Pou2f3_only, cell.type3 == "Pou2f3_Neuroendocrine")
+FeatureScatter(Pou2f3_only , feature1  = "Pou2f3", feature2 = "Sox4", plot.cor = FALSE)+
+stat_cor(method = "pearson", label.x = 1, label.y = 5)
+
+#subset just Pou2f3-
+Neuroendocrine_only <-subset(PRN_6wk_8wk, cell.type3 == "Neuroendocrine")
+FeatureScatter(PRN_6wk_8wk, feature1  = "Sox4", feature2 = "Sox21", plot.cor = FALSE)+
+stat_cor(method = "pearson", label.x = 1.5, label.y = 3.5)
+FeatureScatter(Neuroendocrine, feature1  = "Sox4", feature2 = "Sox21", plot.cor = FALSE)+
+stat_cor(method = "pearson", label.x = 1.5, label.y = 3.5)
+FeatureScatter(Neuroendocrine_only , feature1  = "Sox4", feature2 = "Sox21", plot.cor = FALSE)+
+stat_cor(method = "pearson",label.x = 1.5, label.y = 3.5)
+
+
+FeatureScatter(PRN_6wk_8wk, feature1  = "Pou2f3", feature2 = "Sox21", plot.cor = FALSE)+
+stat_cor(method = "pearson", label.x = 1.5, label.y = 3.5)
+
+
+#Plot Pou2f3, Sox4, Sox21 by sample
+PRN_6wk_8wk <- SetIdent(PRN_6wk_8wk, value = "data.sampleName")
+sox_chain <- VlnPlot(object = PRN_6wk_8wk, features = c("Pou2f3", "Sox4", "Sox21" ))
+
+
+```
+
+
+
+
