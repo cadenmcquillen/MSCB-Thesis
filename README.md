@@ -1,2 +1,2 @@
 # MSCB-Thesis
-Analysis Rmarkdown scripts for masters thesis
+Analysis scripts for masters thesis
